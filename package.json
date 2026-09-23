@@ -1,0 +1,65 @@
+{
+  "name": "@packetexchange/sdk",
+  "version": "0.3.1",
+  "description": "Typed TypeScript SDK for the PacketExchange voice and SMS marketplace API: routes, purchases, calls, SMS, verification, webhooks and more.",
+  "license": "MIT",
+  "author": "PacketExchange <support@packetexchange.io>",
+  "homepage": "https://github.com/PacketExchangeIO/packetexchange-node#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PacketExchangeIO/packetexchange-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PacketExchangeIO/packetexchange-node/issues"
+  },
+  "keywords": [
+    "api",
+    "did",
+    "openapi",
+    "otp",
+    "packetexchange",
+    "sdk",
+    "sip",
+    "sms",
+    "telecom",
+    "typescript",
+    "verification",
+    "voip",
+    "webhooks",
+    "wholesale"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "generate": "node scripts/generate-types.mjs",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run typecheck && npm run build && npm test"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  }
+}

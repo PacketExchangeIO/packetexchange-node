@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# dist/ is committed on purpose: installing from GitHub uses it directly.
+
+# Packed tarballs
+*.tgz
+
+# Environment files (commit .env.example only)
+.env
+.env.*
+!.env.example
+
+# Logs and editor or OS files
+npm-debug.log*
+*.log
+.DS_Store
+.idea/
+.vscode/
+coverage/
