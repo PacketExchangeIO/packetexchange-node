@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # Major versions can change build tooling or APIs; they are upgraded by hand after testing.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
