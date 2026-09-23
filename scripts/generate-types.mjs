@@ -124,7 +124,10 @@ for (const [name, s] of Object.entries(schemas)) {
   out += jsdoc(s.description ?? (name === 'Money' ? 'USD amount as a 6-decimal string, e.g. "0.012500".' : undefined));
   const t = tsType(s);
   // Objects become interfaces (better editor hovers); everything else a type alias.
-  if (t.startsWith('{') && !s.nullable) out += `export interface ${id} ${t}\n\n`;
+  // A union can also start with '{' (`{ say } | { play }`) and is not a valid
+  // interface body, so it always stays a type alias.
+  const isUnion = !!(s.anyOf || s.oneOf || s.allOf);
+  if (t.startsWith('{') && !s.nullable && !isUnion) out += `export interface ${id} ${t}\n\n`;
   else out += `export type ${id} = ${t};\n\n`;
 }
 

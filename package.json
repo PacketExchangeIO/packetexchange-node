@@ -1,6 +1,6 @@
 {
-  "name": "@packetexchange/sdk",
-  "version": "0.3.1",
+  "name": "packetexchange",
+  "version": "0.4.0",
   "description": "Typed TypeScript SDK for the PacketExchange voice and SMS marketplace API: routes, purchases, calls, SMS, verification, webhooks and more.",
   "license": "MIT",
   "author": "PacketExchange <support@packetexchange.io>",

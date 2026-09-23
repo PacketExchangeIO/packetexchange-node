@@ -15,14 +15,29 @@ export type RouteQualityType = 'direct' | 'premium' | 'standard' | 'ncli';
 export type RouteVisibility = 'public' | 'private';
 export type SmsType = 'a2p' | 'p2p' | 'both';
 export type SmsSenderIdType = 'alphanumeric' | 'numeric' | 'preregistered';
+/**
+ * Scopes an API key can be limited to (see the API reference for what each allows).
+ * `webhooks:write` is never implied by a full-access key: grant it explicitly to manage
+ * webhook endpoints over the API.
+ */
 export type ApiKeyScope =
   | 'voice:send'
   | 'sms:send'
   | 'dialer:write'
   | 'routes:read'
+  | 'routes:write'
   | 'account:read'
-  // Verify API (send + check one-time codes by SMS or voice).
-  | 'verify:write';
+  | 'account:write'
+  | 'purchases:write'
+  | 'offers:write'
+  | 'billing:write'
+  | 'numbers:read'
+  | 'numbers:write'
+  | 'cdr:numbers'
+  | 'application:write'
+  | 'switch:manage'
+  | 'verify:write'
+  | 'webhooks:write';
 export type ApiKeyEnvironment = 'live' | 'test';
 export type DialerCampaignStatus =
   | 'draft'

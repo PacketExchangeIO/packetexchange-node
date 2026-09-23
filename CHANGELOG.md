@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@packetexchange/sdk` are documented here.
+All notable changes to the `packetexchange` npm package are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -8,6 +8,44 @@ While the major version is 0, a minor release may contain breaking type changes;
 each one is listed under **Changed** or **Fixed**.
 
 ## [Unreleased]
+
+## [0.4.0] - 2026-09-23
+
+### Added
+
+- Published on npm as `packetexchange`: `npm install packetexchange`.
+- `lookup.number(number)` for `GET /lookup/{number}`: validates and formats a number
+  and returns its country, line type, the network where the marketplace's rate decks
+  agree, blocked and high-risk flags, and the cheapest live voice and SMS price. SMS
+  prices are per destination network where the route prices that way. Lookups are
+  prefix-based (no HLR query), free and limited to 60 a minute. Type: `NumberLookup`.
+- Asynchronous calls: `comms.callAsync(params)` sends `POST /comms/calls` with
+  `async: true` and resolves as soon as the call is being dialled (HTTP 202,
+  `status: 'ringing'`, `callId`). `comms.getCall(callId)` reads `GET /comms/calls/{id}`:
+  live status, timestamps, duration, cost, a plain-words `hangupReason` and gathered
+  digits. `comms.waitForCall(callId)` polls until the call reaches a final state.
+  `comms.call()` still waits for the call to end, as before.
+- Call actions: `actions` on `CallParams` (`{ say }`, `{ play }`, `{ gather }`,
+  `{ pause }`, `{ hangup: true }`) and a default `language` for `say` (en, es, fr, de,
+  pt or hi). Types: `CallAction`, `CommsCallAccepted`, `CommsCallStatus`, and the
+  `FINAL_CALL_STATUSES` constant.
+- `comms.getSms(messageId)` returns `CommsSmsStatus`: the delivery `timeline` (queued,
+  sent, then delivered or failed, each with a timestamp), `errorCode`,
+  `awaitingReceipt` and `routeReturnsReceipts`. `delivered` is reported only when a
+  carrier delivery receipt confirms it. Types: `CommsSmsStatus`, `SmsTimelineStep`.
+- `SmsResult.network`: the destination network a message was priced as, when the route
+  prices SMS per network.
+- `sms.delivered`, `sms.failed`, `call.ringing`, `call.answered` and `call.gathered` in
+  the `WebhookEvent` union.
+- `ApiKeyScope` lists every scope the API accepts, including `webhooks:write`.
+
+### Changed
+
+- `webhooks.create`, `update`, `delete` and `rotateSecret` work with an API key that
+  holds the `webhooks:write` scope, as well as from a dashboard session. A full-access
+  key does not include this scope; grant it explicitly.
+- `openapi.json` and the generated types are refreshed from the API (version 1.2.0).
+  `Schemas.DidMessage` names its message identifier `providerMessageId`.
 
 ### Fixed
 
@@ -17,6 +55,8 @@ each one is listed under **Changed** or **Fixed**.
   `'direct' | 'premium' | 'standard' | 'ncli'`, matching the API.
 - A failed `requestRaw` call (CSV exports) now carries the API's `details` on the
   `PacketExchangeError`, like every other method.
+- The type generator no longer emits a union schema that begins with an object as an
+  `interface`. Unions are always type aliases.
 
 ## [0.3.1] - 2026-09-23
 
@@ -130,5 +170,6 @@ each one is listed under **Changed** or **Fixed**.
 - Cursor-based pagination helpers and a typed `PacketExchangeError`.
 - Dual ESM + CommonJS builds with bundled, dependency-free type declarations.
 
-[Unreleased]: [github.com/PacketExchangeIO/packetexchange-node/compare/v0.3.1...HEAD](https://github.com/PacketExchangeIO/packetexchange-node/compare/v0.3.1...HEAD)
-[0.3.1]: [github.com/PacketExchangeIO/packetexchange-node/releases/tag/v0.3.1](https://github.com/PacketExchangeIO/packetexchange-node/releases/tag/v0.3.1)
+[Unreleased]: https://github.com/PacketExchangeIO/packetexchange-node/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/PacketExchangeIO/packetexchange-node/releases/tag/v0.4.0
+[0.3.1]: https://github.com/PacketExchangeIO/packetexchange-node/releases/tag/v0.3.1

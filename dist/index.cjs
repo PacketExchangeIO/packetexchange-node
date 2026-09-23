@@ -27,10 +27,13 @@ __export(index_exports, {
   DEFAULT_BASE_URL: () => DEFAULT_BASE_URL,
   DialerResource: () => DialerResource,
   DncResource: () => DncResource,
+  FINAL_CALL_STATUSES: () => FINAL_CALL_STATUSES,
   FavoritesResource: () => FavoritesResource,
   HttpClient: () => HttpClient,
   InterconnectionsResource: () => InterconnectionsResource,
+  LookupResource: () => LookupResource,
   NotificationsResource: () => NotificationsResource,
+  NumbersResource: () => NumbersResource,
   OffersResource: () => OffersResource,
   PacketExchange: () => PacketExchange,
   PacketExchangeError: () => PacketExchangeError,
@@ -309,18 +312,71 @@ var RoutesResource = class {
 };
 
 // src/resources/comms.ts
+var FINAL_CALL_STATUSES = ["completed", "no_answer", "busy", "failed"];
 var CommsResource = class {
   constructor(http) {
     this.http = http;
   }
   http;
-  /** POST /comms/calls - place a single outbound call (scope: voice:send). */
+  /**
+   * POST /comms/calls - place a single outbound call (scope: voice:send). Waits for the
+   * call to end and resolves with its outcome and cost. To return as soon as the call
+   * is dialled, use `callAsync`.
+   */
   call(params, opts) {
     return this.http.request("POST", "/comms/calls", {
       ...opts,
       body: params,
       idempotencyKey: opts?.idempotencyKey
     });
+  }
+  /**
+   * POST /comms/calls with `async: true` (scope: voice:send). Resolves as soon as the
+   * call is being dialled, with its `callId` (HTTP 202). Follow the call with `getCall`,
+   * `waitForCall` or the call.ringing, call.answered, call.gathered and call.completed
+   * webhooks. A call that ends before it is dialled (a test-key simulation, for
+   * example) resolves with the final `CallResult` instead.
+   *
+   * @example
+   * const call = await px.comms.callAsync({
+   *   to: '+447700900123',
+   *   from: '+14155550100',
+   *   actions: [
+   *     { say: 'Your appointment is tomorrow at 10am. Press 1 to confirm or 2 to cancel.' },
+   *     { gather: { digits: 1, timeout: 5 } },
+   *   ],
+   * });
+   */
+  callAsync(params, opts) {
+    return this.http.request("POST", "/comms/calls", {
+      ...opts,
+      body: { ...params, async: true },
+      idempotencyKey: opts?.idempotencyKey
+    });
+  }
+  /**
+   * GET /comms/calls/:id - live status, timestamps, cost, hangup reason and gathered
+   * digits for one call (scope: voice:send). Gathered digits are filled in when the
+   * call ends.
+   */
+  getCall(callId, opts) {
+    return this.http.request("GET", `/comms/calls/${encodeURIComponent(callId)}`, opts);
+  }
+  /**
+   * Poll `getCall` until the call reaches a final state (see `FINAL_CALL_STATUSES`) or
+   * `timeoutMs` passes (default 10 minutes), then resolve with the last status read.
+   * Polls every `intervalMs` (default 2000, minimum 1000). For production services the
+   * call webhooks avoid polling altogether.
+   */
+  async waitForCall(callId, options = {}, opts) {
+    const deadline = Date.now() + (options.timeoutMs ?? 10 * 6e4);
+    const interval = Math.max(1e3, options.intervalMs ?? 2e3);
+    for (; ; ) {
+      const status = await this.getCall(callId, opts);
+      const done = FINAL_CALL_STATUSES.includes(status.status);
+      if (done || Date.now() + interval > deadline) return status;
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
   }
   /** POST /comms/sms - send a single SMS (scope: sms:send). */
   sms(params, opts) {
@@ -370,7 +426,16 @@ var CommsResource = class {
   getVoiceOtp(voiceOtpId, opts) {
     return this.http.request("GET", `/comms/voice-otp/${encodeURIComponent(voiceOtpId)}`, opts);
   }
-  /** GET /comms/sms/:messageId - delivery-status lookup for one message. */
+  /**
+   * GET /comms/sms/:messageId - delivery status and timeline for one message.
+   *
+   * `timeline` runs queued, sent, then delivered or failed, with a timestamp per step,
+   * and `errorCode` is set on failure. `delivered` only ever comes from a carrier
+   * delivery receipt: on a route that returns none the message stays `sent` with
+   * `awaitingReceipt: true` (see `routeReturnsReceipts`). An unknown id resolves with
+   * `status: 'not_found'` rather than throwing. The `sms.delivered` and `sms.failed`
+   * webhooks report the same changes without polling.
+   */
   getSms(messageId, opts) {
     return this.http.request("GET", `/comms/sms/${encodeURIComponent(messageId)}`, opts);
   }
@@ -886,6 +951,45 @@ var VerifyResource = class {
   }
 };
 
+// src/resources/lookup.ts
+var LookupResource = class {
+  constructor(http) {
+    this.http = http;
+  }
+  http;
+  /**
+   * GET /lookup/:number - look up one number. Send it in international format
+   * (`+447700900123`; spaces and dashes are ignored). A malformed number resolves with
+   * `valid: false` and a `reason` rather than throwing.
+   */
+  number(number, opts) {
+    return this.http.request("GET", `/lookup/${encodeURIComponent(number.trim())}`, opts);
+  }
+};
+
+// src/resources/numbers.ts
+var NumbersResource = class {
+  constructor(http) {
+    this.http = http;
+  }
+  http;
+  /** GET /dids/:id/ai-agent - the AI voice agent assigned to a number (scope: numbers:read). */
+  getAiAgent(numberId, opts) {
+    return this.http.request("GET", `/dids/${encodeURIComponent(numberId)}/ai-agent`, opts);
+  }
+  /**
+   * PUT /dids/:id/ai-agent - assign one of your AI voice agents to a number, or pass
+   * `null` to return the number to its call flow (scope: numbers:write). `live` in the
+   * response says whether inbound AI answering is currently enabled on the platform.
+   */
+  setAiAgent(numberId, agentId, opts) {
+    return this.http.request("PUT", `/dids/${encodeURIComponent(numberId)}/ai-agent`, {
+      ...opts,
+      body: { agentId }
+    });
+  }
+};
+
 // src/resources/misc.ts
 var NotificationsResource = class {
   constructor(http) {
@@ -994,6 +1098,10 @@ var PacketExchange = class {
   interconnections;
   /** Verify API: send a one-time code by SMS or voice and check it. */
   verify;
+  /** Number lookup: country, line type, network, risk flags and cheapest price (free, prefix-based). */
+  lookup;
+  /** Phone numbers you bought. */
+  numbers;
   notifications;
   dnc;
   favorites;
@@ -1011,6 +1119,8 @@ var PacketExchange = class {
     this.cliTests = new CliTestsResource(this.http);
     this.interconnections = new InterconnectionsResource(this.http);
     this.verify = new VerifyResource(this.http);
+    this.lookup = new LookupResource(this.http);
+    this.numbers = new NumbersResource(this.http);
     this.notifications = new NotificationsResource(this.http);
     this.dnc = new DncResource(this.http);
     this.favorites = new FavoritesResource(this.http);
@@ -1087,10 +1197,13 @@ async function verifyWebhookSignature(p) {
   DEFAULT_BASE_URL,
   DialerResource,
   DncResource,
+  FINAL_CALL_STATUSES,
   FavoritesResource,
   HttpClient,
   InterconnectionsResource,
+  LookupResource,
   NotificationsResource,
+  NumbersResource,
   OffersResource,
   PacketExchange,
   PacketExchangeError,

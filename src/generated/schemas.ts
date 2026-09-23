@@ -1,6 +1,6 @@
 /* eslint-disable */
 // Do not edit by hand: produced by scripts/generate-types.mjs.
-// Source: openapi.json (PacketExchange API 1.1.0).
+// Source: openapi.json (PacketExchange API 1.2.0).
 // Regenerate with: npm run generate
 //
 // Every type below mirrors a schema in the public OpenAPI document. Money fields are
@@ -336,7 +336,7 @@ export interface ApiKey {
   keyPrefix: string;
   label: string;
   /** null = full access; otherwise the only scopes this key may use */
-  scopes: (Array<"voice:send" | "sms:send" | "dialer:write" | "routes:read" | "account:read" | "purchases:write" | "offers:write" | "billing:write" | "numbers:read" | "numbers:write" | "account:write" | "routes:write" | "cdr:numbers" | "application:write" | "switch:manage" | "verify:write">) | null;
+  scopes: (Array<"voice:send" | "sms:send" | "dialer:write" | "routes:read" | "account:read" | "purchases:write" | "offers:write" | "billing:write" | "numbers:read" | "numbers:write" | "account:write" | "routes:write" | "cdr:numbers" | "application:write" | "switch:manage" | "verify:write" | "webhooks:write">) | null;
   environment: "live" | "test";
   /** ISO-8601 timestamp (UTC) */
   lastUsedAt: string | null;
@@ -355,7 +355,7 @@ export interface CreatedApiKey {
   /** Deprecated alias of `keyPrefix`, kept for existing clients. */
   prefix: string;
   label: string;
-  scopes: (Array<"voice:send" | "sms:send" | "dialer:write" | "routes:read" | "account:read" | "purchases:write" | "offers:write" | "billing:write" | "numbers:read" | "numbers:write" | "account:write" | "routes:write" | "cdr:numbers" | "application:write" | "switch:manage" | "verify:write">) | null;
+  scopes: (Array<"voice:send" | "sms:send" | "dialer:write" | "routes:read" | "account:read" | "purchases:write" | "offers:write" | "billing:write" | "numbers:read" | "numbers:write" | "account:write" | "routes:write" | "cdr:numbers" | "application:write" | "switch:manage" | "verify:write" | "webhooks:write">) | null;
   environment: "live" | "test";
   /** ISO-8601 timestamp (UTC) */
   expiresAt: string | null;
@@ -366,7 +366,7 @@ export interface Webhook {
   url: string;
   /** Last 4 characters of the signing secret, to tell secrets apart */
   secretLast4: string;
-  events: Array<"call.completed" | "sms.sent" | "sms.dlr" | "campaign.started" | "campaign.completed" | "topup.confirmed" | "balance.low" | "offer.received" | "route.purchased" | "sub_account.balance_low" | "sub_account.suspended" | "sub_account.resumed" | "sub_account.topup_requested" | "number.call.received" | "number.sms.received" | "number.voicemail.received" | "invoice.created" | "invoice.issued" | "invoice.sent" | "invoice.voided" | "invoice.reissued" | "invoice.payment" | "credit_note.issued" | "payable.created" | "netting.run" | "sell_rate.changed" | "cost_rate.scheduled" | "cost_rate.activated" | "cost_rate.rolled_back" | "sub_account.margin_below_floor" | "ping">;
+  events: Array<"call.completed" | "call.ringing" | "call.answered" | "call.gathered" | "sms.sent" | "sms.dlr" | "sms.delivered" | "sms.failed" | "campaign.started" | "campaign.completed" | "topup.confirmed" | "balance.low" | "offer.received" | "route.purchased" | "sub_account.balance_low" | "sub_account.suspended" | "sub_account.resumed" | "sub_account.topup_requested" | "number.call.received" | "number.sms.received" | "number.voicemail.received" | "invoice.created" | "invoice.issued" | "invoice.sent" | "invoice.voided" | "invoice.reissued" | "invoice.payment" | "credit_note.issued" | "payable.created" | "netting.run" | "sell_rate.changed" | "cost_rate.scheduled" | "cost_rate.activated" | "cost_rate.rolled_back" | "sub_account.margin_below_floor" | "ping">;
   /** False when you disabled it, or after sustained delivery failures */
   isActive: boolean;
   /** Consecutive failed deliveries; resets on success */
@@ -384,7 +384,7 @@ export interface WebhookWithSecret {
   url: string;
   /** Last 4 characters of the signing secret, to tell secrets apart */
   secretLast4: string;
-  events: Array<"call.completed" | "sms.sent" | "sms.dlr" | "campaign.started" | "campaign.completed" | "topup.confirmed" | "balance.low" | "offer.received" | "route.purchased" | "sub_account.balance_low" | "sub_account.suspended" | "sub_account.resumed" | "sub_account.topup_requested" | "number.call.received" | "number.sms.received" | "number.voicemail.received" | "invoice.created" | "invoice.issued" | "invoice.sent" | "invoice.voided" | "invoice.reissued" | "invoice.payment" | "credit_note.issued" | "payable.created" | "netting.run" | "sell_rate.changed" | "cost_rate.scheduled" | "cost_rate.activated" | "cost_rate.rolled_back" | "sub_account.margin_below_floor" | "ping">;
+  events: Array<"call.completed" | "call.ringing" | "call.answered" | "call.gathered" | "sms.sent" | "sms.dlr" | "sms.delivered" | "sms.failed" | "campaign.started" | "campaign.completed" | "topup.confirmed" | "balance.low" | "offer.received" | "route.purchased" | "sub_account.balance_low" | "sub_account.suspended" | "sub_account.resumed" | "sub_account.topup_requested" | "number.call.received" | "number.sms.received" | "number.voicemail.received" | "invoice.created" | "invoice.issued" | "invoice.sent" | "invoice.voided" | "invoice.reissued" | "invoice.payment" | "credit_note.issued" | "payable.created" | "netting.run" | "sell_rate.changed" | "cost_rate.scheduled" | "cost_rate.activated" | "cost_rate.rolled_back" | "sub_account.margin_below_floor" | "ping">;
   /** False when you disabled it, or after sustained delivery failures */
   isActive: boolean;
   /** Consecutive failed deliveries; resets on success */
@@ -668,6 +668,19 @@ export interface PricedRoute {
   exchangeScore: number | null;
   /** True only on your own listing (signed-in callers), so you are not offered your own route */
   isOwn: boolean;
+  /** SMS routes that price the country per mobile network: which network `rate` is for. Absent otherwise */
+  network?: {
+    /** Mobile network code (MCC-MNC) `rate` is for, e.g. "234-10"; null when unknown */
+    mccMnc: string | null;
+    /** Network name from public number-range data, e.g. "O2" */
+    operator: string | null;
+    /** range = number-range data; none = not determined */
+    source: "range" | "hlr" | "none";
+    /** network = that network's own rate; all_operators = the route's rate for networks it does not list separately; country = the price for other or unknown networks */
+    rateBasis: "network" | "all_operators" | "country";
+  } | null;
+  /** SMS routes that price per network: the price for other or unknown networks */
+  countryRate?: Money | null;
 }
 
 export interface RouteRate {
@@ -682,6 +695,17 @@ export interface RouteRate {
   /** ISO-8601 timestamp (UTC) */
   effectiveDate: string | null;
   status: string;
+  /** SMS sheets priced by network code: the network the row price came from ("214" = whole country) */
+  mccMnc?: string | null;
+  /** SMS sheets priced by network: the price per destination network (charged per network when `networkPriced` is true). A message is charged its network's rate (networks not listed pay the All Operators rate when there is one); `ratePerUnit` is the price for other or unknown networks. The network is determined from the number's range (ported numbers may be priced at the network the range belongs to) */
+  operatorRates?: (Array<{
+    /** "214-07" for one network; "214" for All Operators */
+    mccMnc: string;
+    operator: string | null;
+    rate: Money;
+  }>) | null;
+  /** True when each SMS on this row is charged its destination network's rate from `operatorRates`; `ratePerUnit` then applies to other or unknown networks */
+  networkPriced?: boolean;
   [key: string]: unknown;
 }
 
@@ -1092,6 +1116,94 @@ export interface Offer {
   } | null;
 }
 
+export type CallAction = {
+  /** Text spoken by our text-to-speech voice */
+  say: string;
+  /** Overrides the call default for this action */
+  language?: "en" | "es" | "fr" | "de" | "pt" | "hi";
+} | {
+  /** HTTPS URL of an MP3 file, at most 2 MB. We download it once before dialling (public addresses only, no redirects) and play our copy */
+  play: string;
+} | {
+  gather: {
+    /** Most keys to collect */
+    digits?: number;
+    /** Seconds to wait for the first key */
+    timeout?: number;
+    /** Key that ends input early; empty for none */
+    finishOnKey?: "#" | "*" | "";
+    /** Prompt and wait again this many times in total when nothing is pressed */
+    tries?: number;
+    /** Prompt spoken while listening; a key press interrupts it */
+    say?: string;
+    /** Prompt played while listening (instead of say) */
+    play?: string;
+    language?: "en" | "es" | "fr" | "de" | "pt" | "hi";
+  };
+} | {
+  /** Seconds of silence */
+  pause: number;
+} | {
+  hangup: true;
+};
+
+export interface CommsCallAccepted {
+  /** Use with GET /comms/calls/{id}; the same id appears on the call.* webhooks */
+  callId: string;
+  /** The call has been handed to the network and is being dialled */
+  status: "ringing";
+  mode: "async";
+  to: string;
+  from: string;
+  /** How many call actions will run on answer */
+  actions: number;
+  /** Path of GET /comms/calls/{id} for this call */
+  statusUrl: string;
+}
+
+export interface CommsCallStatus {
+  callId: string;
+  /** queued, ringing and answered are live states; completed (answered, then ended), no_answer, busy and failed are final */
+  status: "queued" | "ringing" | "answered" | "completed" | "no_answer" | "busy" | "failed";
+  mode: "sync" | "async";
+  to: string;
+  from: string;
+  /** True for test-key calls: nothing was dialled */
+  simulated: boolean;
+  /** ISO-8601 timestamp (UTC) */
+  createdAt: string;
+  /** ISO-8601 timestamp (UTC) */
+  ringingAt: string | null;
+  /** ISO-8601 timestamp (UTC) */
+  answeredAt: string | null;
+  /** ISO-8601 timestamp (UTC) */
+  endedAt: string | null;
+  durationSeconds: number | null;
+  /** Duration rounded up to the route billing increment */
+  billableSeconds: number | null;
+  /** What the call cost you, platform fee included. Null until it ends */
+  cost: Money | null;
+  billingIncrement: string | null;
+  sipResponseCode: number | null;
+  /** The switch cause code, e.g. NORMAL_CLEARING or USER_BUSY */
+  hangupCause: string | null;
+  /** Why the call ended, in plain words. Null while it is live */
+  hangupReason: string | null;
+  /** Why the call could not be placed, when it failed before reaching the network */
+  error: string | null;
+  /** The call actions as you sent them */
+  actions: Array<unknown> | null;
+  /** Keypad input from gather actions, filled in when the call ends */
+  gathered: (Array<{
+    /** Which gather action (0 for the first) */
+    index: number;
+    /** The keys pressed, without the finish key */
+    digits: string | null;
+    /** no_input: nothing was pressed, or the call ended before this step */
+    status: "received" | "no_input";
+  }>) | null;
+}
+
 export interface CommsCall {
   callId: string;
   to: string;
@@ -1138,6 +1250,17 @@ export interface CommsSms {
   submittedAt: string;
   /** Present and true for test-key messages: nothing was sent */
   simulated?: boolean;
+  /** Present when the route prices SMS to this country per destination network. The network is determined from the number's range (ported numbers may be priced at the network the range belongs to) */
+  network?: {
+    /** Mobile network code (MCC-MNC) the message was priced as, e.g. "234-10" */
+    mccMnc: string | null;
+    /** Network name from public number-range data */
+    operator: string | null;
+    /** range = number-range data; hlr = a live network lookup; none = not determined */
+    source: "range" | "hlr" | "none";
+    /** network = that network's own rate; all_operators = the route's rate for networks it does not list separately; country = the route's price for other or unknown networks */
+    rateBasis: "network" | "all_operators" | "country";
+  } | null;
 }
 
 export interface CommsHistoryEntry {
@@ -1159,16 +1282,44 @@ export interface CommsHistoryEntry {
   createdAt: string;
 }
 
+export interface SmsTimelineStep {
+  /** queued = charged and waiting to be handed off; sent = the route accepted it; accepted = simulated on a test key; delivered / failed = final */
+  status: "queued" | "sent" | "accepted" | "delivered" | "failed";
+  /** ISO-8601 timestamp (UTC) */
+  at: string;
+  /** Where we learned it: our ledger, the hand-off to the route, the carrier's delivery receipt, or a test-key simulation */
+  source: "platform" | "submit" | "carrier_receipt" | "simulated";
+  /** On failed: SELLER_REJECTED, NO_ENDPOINT, UNDELIVERABLE, EXPIRED or REJECTED */
+  errorCode?: string | null;
+  /** The carrier receipt's own status value, e.g. DELIVRD or UNDELIV */
+  carrierStatus?: string | null;
+  /** The carrier receipt's own error value, when it sent one */
+  carrierError?: string | null;
+}
+
 export interface CommsSmsStatus {
   messageId: string;
-  /** Last known send-time state (accepted, sent or failed), or not_found when the id is not on your account */
+  /** Current state: sent, accepted (test key), delivered or failed; not_found when the id is not on your account. delivered only ever comes from a carrier receipt */
   status: string;
-  /** Always false today: no handset delivery receipts are collected */
+  to?: string | null;
+  from?: string | null;
+  segments?: number | null;
+  /** Set when status is failed: SELLER_REJECTED (the route refused the hand-off), NO_ENDPOINT, UNDELIVERABLE, EXPIRED or REJECTED (from the carrier receipt) */
+  errorCode?: string | null;
+  /** Every state the message has been in, oldest first */
+  timeline?: Array<SmsTimelineStep>;
+  /** True while the message is sent and no carrier receipt has arrived. It stays true for good on a route that returns no receipts */
+  awaitingReceipt?: boolean;
+  /** Whether the route that carried this message has returned at least one carrier receipt in the last 30 days. null for test-key messages */
+  routeReturnsReceipts?: boolean | null;
+  /** True: the platform collects carrier delivery receipts. Whether one arrives for this message depends on the route (routeReturnsReceipts) */
   dlrSupported?: boolean;
-  /** US dollars as a decimal string with exactly 6 decimal places, e.g. "0.012500". Do money arithmetic with a decimal type, not floating point. */
+  /** Present and true for test-key messages: nothing was sent */
+  simulated?: boolean;
+  /** The ledger amount of the charge (negative) */
   cost?: Money;
   reference?: string | null;
-  /** ISO-8601 timestamp (UTC) */
+  /** When the message was charged */
   sentAt?: string;
   /** Explanation, present when status is not_found */
   message?: string;
@@ -1356,6 +1507,8 @@ export interface Did {
   endpointCause: string | null;
   /** ISO-8601 timestamp (UTC) */
   endpointCheckedAt: string | null;
+  /** The AI voice agent answering inbound calls to this number, or null (PUT /dids/{id}/ai-agent) */
+  aiAgentId: string | null;
   /** Days an unpaid (suspended) number is held before release */
   graceDays: number;
 }
@@ -1567,7 +1720,7 @@ export interface DidMessage {
   status: "received" | "queued" | "sent" | "delivered" | "failed";
   error: string | null;
   /** Upstream carrier message id */
-  didwwMessageId: string | null;
+  providerMessageId: string | null;
   /** ISO-8601 timestamp (UTC) */
   readAt: string | null;
   /** ISO-8601 timestamp (UTC) */
@@ -1690,6 +1843,126 @@ export interface DidCliEligible {
   didType: string | null;
   channels: number;
   label: string | null;
+}
+
+export interface DidAiAgent {
+  didId: string;
+  agentId: string | null;
+  agentName: string | null;
+  /** A disabled agent does not answer; the number rings its call flow */
+  agentEnabled: boolean | null;
+  /** Whether inbound AI answering is switched on for the platform right now */
+  live: boolean;
+  /** AI voice rate in USD per minute, billed per second */
+  ratePerMin: string;
+}
+
+export interface NumberLookup {
+  /** What you sent */
+  input: string;
+  /** Whether the input is a well-formed E.164 number */
+  valid: boolean;
+  /** Why it is not valid, when it is not */
+  reason: string | null;
+  /** + followed by digits, e.g. +447700900123 */
+  e164: string | null;
+  /** +<country code> <rest>, e.g. +44 7700900123 */
+  internationalFormat: string | null;
+  country: {
+    /** ISO 3166 alpha-2. null for a shared dial code the decks do not resolve (+1, +7) */
+    iso: string | null;
+    name: string;
+    dialCode: string;
+    /** rate_decks when the matching destinations name the country; dial_code otherwise */
+    basis: "rate_decks" | "dial_code";
+  } | null;
+  /** Inferred from the destination names on the rate decks that match the number (prefix-based, not an HLR query) */
+  numberType: "mobile" | "fixed" | "toll_free" | "premium" | "unknown";
+  /** 0 to 1: the share of matching decks that agree on numberType */
+  numberTypeConfidence: number;
+  /** The network, only when at least three different sellers' decks name the same one for this prefix. Prefix-based: a ported number keeps its original network here */
+  operator: string | null;
+  /** The mobile network the number's RANGE belongs to, from public number-range data. A ported number keeps its range's network here. null when the range is not known */
+  network: {
+    /** Mobile network code (MCC-MNC), when known, e.g. "234-58" */
+    mccMnc: string | null;
+    /** The network the number range was allocated to, e.g. "Manx Telecom" */
+    operator: string | null;
+    /** range = public number-range data */
+    source: "range" | "hlr";
+  } | null;
+  /** The longest dial prefix any live deck matched */
+  matchedPrefix: string | null;
+  risk: {
+    /** A destination we do not carry (embargoed or platform-blocked) */
+    blocked: boolean;
+    sanctioned: boolean;
+    /** Premium-rate, or a prefix on our high-risk list (satellite, remote and high-cost destinations often abused for revenue-share fraud) */
+    highRisk: boolean;
+    reasons: Array<string>;
+  };
+  pricing: {
+    /** The cheapest live public route for the number, or null when none serves it */
+    voice: {
+      /** USD, 6 decimals: per minute for voice, per message for SMS */
+      rate: string;
+      currency: "USD";
+      unit: "min" | "msg";
+      /** e.g. "60/60"; null when the listing does not state one */
+      billingIncrement: string | null;
+      /** The destination the number matched on that route, e.g. "United Kingdom-Mobile" */
+      destination: string;
+      /** The cheapest public route that serves the number (see GET /routes/{id}) */
+      routeId: string;
+      /** How many public routes serve the number */
+      routesServing: number;
+      /** SMS only: the network `rate` is for, when the route prices per network; null otherwise */
+      network?: {
+        /** Mobile network code (MCC-MNC) the price is for, e.g. "234-10"; null when unknown */
+        mccMnc: string | null;
+        /** Network name from public number-range data, e.g. "O2" */
+        operator: string | null;
+        /** range = number-range data; none = not determined */
+        source: "range" | "hlr" | "none";
+        /** network = that network's own rate; all_operators = the route's rate for networks it does not list separately; country = the route's price for other or unknown networks */
+        rateBasis: "network" | "all_operators" | "country";
+      } | null;
+      /** SMS only: the route's price for other or unknown networks (USD, 6 decimals), when it prices per network */
+      countryRate?: string | null;
+    } | null;
+    /** The cheapest live public route for the number, or null when none serves it */
+    sms: {
+      /** USD, 6 decimals: per minute for voice, per message for SMS */
+      rate: string;
+      currency: "USD";
+      unit: "min" | "msg";
+      /** e.g. "60/60"; null when the listing does not state one */
+      billingIncrement: string | null;
+      /** The destination the number matched on that route, e.g. "United Kingdom-Mobile" */
+      destination: string;
+      /** The cheapest public route that serves the number (see GET /routes/{id}) */
+      routeId: string;
+      /** How many public routes serve the number */
+      routesServing: number;
+      /** SMS only: the network `rate` is for, when the route prices per network; null otherwise */
+      network?: {
+        /** Mobile network code (MCC-MNC) the price is for, e.g. "234-10"; null when unknown */
+        mccMnc: string | null;
+        /** Network name from public number-range data, e.g. "O2" */
+        operator: string | null;
+        /** range = number-range data; none = not determined */
+        source: "range" | "hlr" | "none";
+        /** network = that network's own rate; all_operators = the route's rate for networks it does not list separately; country = the route's price for other or unknown networks */
+        rateBasis: "network" | "all_operators" | "country";
+      } | null;
+      /** SMS only: the route's price for other or unknown networks (USD, 6 decimals), when it prices per network */
+      countryRate?: string | null;
+    } | null;
+  };
+  /** Always prefix: no carrier network query is made */
+  method: "prefix";
+  /** When this answer was computed. Answers are cached for up to 10 minutes */
+  cachedAt: string;
 }
 
 export interface LedgerTransaction {
@@ -4500,6 +4773,90 @@ export interface SwitchDncHonorSetting {
   };
 }
 
+export interface PricingDestination {
+  /** URL slug from the country name, e.g. "pakistan" */
+  slug: string;
+  country: string;
+  /** E.164 country calling code, digits only */
+  countryCode: string;
+  /** Live routes that price at least one number type */
+  routes: number;
+  /** Lowest mobile, fixed or country-wide rate */
+  lowest: string;
+  /** `mobile` and `fixed`: rate-sheet rows named for that number type. `countryWide`: the bare country row (or a single-price listing), which prices every number without a more specific row. */
+  lowestBand: "mobile" | "fixed" | "countryWide";
+  /** Per minute (voice) or per message (SMS) */
+  unit: "min" | "msg";
+}
+
+export interface PricingDestinationDetail {
+  /** URL slug from the country name, e.g. "pakistan" */
+  slug: string;
+  country: string;
+  /** E.164 country calling code, digits only */
+  countryCode: string;
+  /** Live routes that price at least one number type */
+  routes: number;
+  /** Lowest mobile, fixed or country-wide rate */
+  lowest: string;
+  /** `mobile` and `fixed`: rate-sheet rows named for that number type. `countryWide`: the bare country row (or a single-price listing), which prices every number without a more specific row. */
+  lowestBand: "mobile" | "fixed" | "countryWide";
+  /** Per minute (voice) or per message (SMS) */
+  unit: "min" | "msg";
+  type: "voice" | "sms";
+  /** Highest route "from" price in the destination */
+  highest: string;
+  /** Lowest rate per number type */
+  bands: Array<{
+    /** `mobile` and `fixed`: rate-sheet rows named for that number type. `countryWide`: the bare country row (or a single-price listing), which prices every number without a more specific row. */
+    key: "mobile" | "fixed" | "countryWide";
+    /** USD, 6-decimal string, e.g. "0.020370" */
+    from: string;
+    routes: number;
+  }>;
+  /** Mobile operators broken out on at least two routes, cheapest first, at most 12 */
+  operators: Array<{
+    name: string;
+    /** USD, 6-decimal string, e.g. "0.020370" */
+    from: string;
+    routes: number;
+  }>;
+  /** Caller-ID handling the sellers state (voice only) */
+  cliTypes: Array<{
+    cliType: string;
+    routes: number;
+  }>;
+  /** Billing increments, e.g. "1/1" (voice only) */
+  increments: Array<{
+    increment: string;
+    routes: number;
+  }>;
+  /** Routes whose seller states an ASR */
+  routesWithStatedAsr: number;
+  /** Named breakouts that are not a headline number type (toll-free, premium, cities) */
+  otherBreakouts: number;
+  /** The five cheapest routes, as anonymous facts */
+  topRoutes: Array<{
+    rank: number;
+    /** USD, 6-decimal string, e.g. "0.020370" */
+    from: string;
+    /** USD, 6-decimal string, e.g. "0.020370" */
+    mobileFrom: string | null;
+    cliType: string;
+    billingIncrement: string | null;
+    /** Quality tier the route is listed under */
+    routeType: string;
+    /** Seller-stated ASR %, not measured */
+    statedAsr: string | null;
+    /** Seller-stated ACD in seconds, not measured */
+    statedAcd: string | null;
+  }>;
+  /** Destinations in the same world numbering zone */
+  related: Array<PricingDestination>;
+  /** ISO-8601 timestamp (UTC) */
+  updatedAt: string;
+}
+
 export interface SystemHealth {
   components: Array<{
     name: string;
@@ -5101,9 +5458,11 @@ export interface Operations {
   getCliTestsTestableDestinations: { method: "GET"; path: "/api/v1/cli-tests/testable-destinations"; tag: "CLI tests" };
   /** List your API call history */
   getCommsCalls: { method: "GET"; path: "/api/v1/comms/calls"; tag: "Voice and SMS" };
+  /** Get one call: live status, cost and gathered digits */
+  getCommsCallsById: { method: "GET"; path: "/api/v1/comms/calls/{id}"; tag: "Voice and SMS" };
   /** List your SMS history */
   getCommsSms: { method: "GET"; path: "/api/v1/comms/sms"; tag: "Voice and SMS" };
-  /** Get the status of a sent SMS */
+  /** Get the delivery status and timeline of a sent SMS */
   getCommsSmsByMessageId: { method: "GET"; path: "/api/v1/comms/sms/{messageId}"; tag: "Voice and SMS" };
   /** Get the outcome of a voice passcode call */
   getCommsVoiceOtpById: { method: "GET"; path: "/api/v1/comms/voice-otp/{id}"; tag: "Verify" };
@@ -5151,6 +5510,8 @@ export interface Operations {
   getDidsAnalyticsOverview: { method: "GET"; path: "/api/v1/dids/analytics/overview"; tag: "Phone numbers" };
   /** Get one of your phone numbers */
   getDidsById: { method: "GET"; path: "/api/v1/dids/{id}"; tag: "Phone numbers" };
+  /** See which AI voice agent answers a number */
+  getDidsByIdAiAgent: { method: "GET"; path: "/api/v1/dids/{id}/ai-agent"; tag: "Phone numbers" };
   /** Get spend and usage analytics for a number */
   getDidsByIdAnalytics: { method: "GET"; path: "/api/v1/dids/{id}/analytics"; tag: "Phone numbers" };
   /** List inbound calls to a number */
@@ -5217,6 +5578,8 @@ export interface Operations {
   getInterconnectionsStatusSummary: { method: "GET"; path: "/api/v1/interconnections/status/summary"; tag: "Interconnections" };
   /** Get your identity verification status */
   getKycStatus: { method: "GET"; path: "/api/v1/kyc/status"; tag: "Compliance" };
+  /** Look up a phone number */
+  getLookupByNumber: { method: "GET"; path: "/api/v1/lookup/{number}"; tag: "Number lookup" };
   /** Get the marketplace summary */
   getMarketsSummary: { method: "GET"; path: "/api/v1/markets/summary"; tag: "Markets" };
   /** List your notifications */
@@ -5231,6 +5594,10 @@ export interface Operations {
   getPayouts: { method: "GET"; path: "/api/v1/payouts"; tag: "Payouts" };
   /** Get the public AI voice price per minute */
   getPricingAiVoice: { method: "GET"; path: "/api/v1/pricing/ai-voice"; tag: "System" };
+  /** List destinations with live routes and their lowest rates */
+  getPricingDestinations: { method: "GET"; path: "/api/v1/pricing/destinations"; tag: "Markets" };
+  /** Get the live market for one destination */
+  getPricingDestinationsBySlug: { method: "GET"; path: "/api/v1/pricing/destinations/{slug}"; tag: "Markets" };
   /** Look at a saved draft listing */
   getPublicListingsByToken: { method: "GET"; path: "/api/v1/public/listings/{token}"; tag: "Marketplace routes" };
   /** Browse the public number catalogue */
@@ -6363,6 +6730,8 @@ export interface Operations {
   putDialerCampaignsById: { method: "PUT"; path: "/api/v1/dialer/campaigns/{id}"; tag: "Dialer" };
   /** Assign a caller-ID set and rotation strategy to a campaign */
   putDialerCampaignsByIdCli: { method: "PUT"; path: "/api/v1/dialer/campaigns/{id}/cli"; tag: "Dialer" };
+  /** Point a number at an AI voice agent */
+  putDidsByIdAiAgent: { method: "PUT"; path: "/api/v1/dids/{id}/ai-agent"; tag: "Phone numbers" };
   /** Configure the IVR menu on a number */
   putDidsByIdFeaturesIvr: { method: "PUT"; path: "/api/v1/dids/{id}/features/ivr"; tag: "Phone numbers" };
   /** Configure call recording on a number */

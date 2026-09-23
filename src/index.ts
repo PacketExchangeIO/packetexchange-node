@@ -1,4 +1,4 @@
-// Public entry point for @packetexchange/sdk.
+// Public entry point for the packetexchange package.
 export { PacketExchange } from './client.js';
 export { PacketExchangeError } from './errors.js';
 export {
@@ -29,7 +29,14 @@ export {
   type VoiceOtpParams,
   type VoiceOtpResult,
   type VoiceOtpStatus,
+  type CallAction,
+  type CommsCallAccepted,
+  type CommsCallStatus,
+  type CommsSmsStatus,
+  FINAL_CALL_STATUSES,
 } from './resources/comms.js';
+export { LookupResource } from './resources/lookup.js';
+export { NumbersResource, type DidAiAgent } from './resources/numbers.js';
 export {
   VerifyResource,
   type VerifyChannel,
@@ -69,7 +76,7 @@ export {
 
 // Types generated from openapi.json. Exposed as a namespace so a spec schema never
 // collides with a hand-written export of the same name (both define ApiKey, for example):
-// import type { Schemas } from '@packetexchange/sdk'.
+// import type { Schemas } from 'packetexchange'.
 export type * as Schemas from './generated/schemas.js';
 export type { Operations, OperationId } from './generated/schemas.js';
 export type {
@@ -82,6 +89,8 @@ export type {
   ErrorEnvelope,
   PriceNumberResult,
   PricedRoute,
+  NumberLookup,
+  SmsTimelineStep,
   RoutingOrderEntry,
   RoutingOrderResult,
   RouteForResult,

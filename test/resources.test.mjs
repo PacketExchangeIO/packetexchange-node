@@ -87,3 +87,102 @@ test('path segments are percent-encoded', async () => {
   await px.verify.get('a/b');
   assert.equal(calls[0].path, '/api/v1/verify/a%2Fb');
 });
+
+test('lookup.number encodes the number into the path', async () => {
+  const data = { input: '+447700900123', valid: true, e164: '+447700900123', numberType: 'mobile' };
+  const { px, calls } = mockClient(() => ({ body: { success: true, data } }));
+  const res = await px.lookup.number(' +447700900123 ');
+  assert.equal(res.numberType, 'mobile');
+  assert.equal(calls[0].method, 'GET');
+  assert.equal(calls[0].url.pathname, '/api/v1/lookup/%2B447700900123');
+});
+
+test('comms.call sends actions and language unchanged', async () => {
+  const { px, calls } = mockClient();
+  const actions = [{ say: 'Your order has shipped.' }, { pause: 1 }, { hangup: true }];
+  await px.comms.call({ to: '+447700900123', from: '+14155550100', actions, language: 'fr' });
+  assert.deepEqual([calls[0].method, calls[0].path], ['POST', '/api/v1/comms/calls']);
+  assert.deepEqual(calls[0].body, { to: '+447700900123', from: '+14155550100', actions, language: 'fr' });
+});
+
+test('comms.callAsync sets async: true and returns the accepted call', async () => {
+  const accepted = {
+    callId: 'c1',
+    status: 'ringing',
+    mode: 'async',
+    to: '+447700900123',
+    from: '+14155550100',
+    actions: 2,
+    statusUrl: '/api/v1/comms/calls/c1',
+  };
+  const { px, calls } = mockClient(() => ({ status: 202, body: { success: true, data: accepted } }));
+  const actions = [{ say: 'Press 1 to confirm.' }, { gather: { digits: 1, timeout: 5 } }];
+  const res = await px.comms.callAsync(
+    { to: '+447700900123', from: '+14155550100', actions },
+    { idempotencyKey: 'call-1' },
+  );
+  assert.equal(res.callId, 'c1');
+  assert.equal(res.status, 'ringing');
+  assert.deepEqual(calls[0].body, { to: '+447700900123', from: '+14155550100', actions, async: true });
+  assert.equal(calls[0].headers['X-Idempotency-Key'], 'call-1');
+});
+
+test('comms.waitForCall polls getCall until a final status', async () => {
+  const states = ['ringing', 'answered', 'completed'];
+  let n = 0;
+  const { px, calls } = mockClient(() => {
+    const status = states[Math.min(n++, states.length - 1)];
+    const gathered = status === 'completed' ? [{ index: 0, digits: '1', status: 'received' }] : null;
+    return { body: { success: true, data: { callId: 'c1', status, gathered } } };
+  });
+  const done = await px.comms.waitForCall('c1', { intervalMs: 1000, timeoutMs: 10_000 });
+  assert.equal(done.status, 'completed');
+  assert.equal(done.gathered?.[0]?.digits, '1');
+  assert.equal(calls.length, 3);
+  assert.ok(calls.every((c) => c.method === 'GET' && c.path === '/api/v1/comms/calls/c1'));
+});
+
+test('comms.waitForCall returns the last status when the timeout passes', async () => {
+  const { px, calls } = mockClient(() => ({ body: { success: true, data: { callId: 'c1', status: 'ringing' } } }));
+  const res = await px.comms.waitForCall('c1', { timeoutMs: 0 });
+  assert.equal(res.status, 'ringing');
+  assert.equal(calls.length, 1);
+});
+
+test('comms.getSms returns the delivery timeline', async () => {
+  const data = {
+    messageId: 'm1',
+    status: 'delivered',
+    timeline: [
+      { status: 'queued', at: '2026-09-23T10:00:00.000Z', source: 'platform' },
+      { status: 'sent', at: '2026-09-23T10:00:01.000Z', source: 'submit' },
+      { status: 'delivered', at: '2026-09-23T10:00:04.000Z', source: 'carrier_receipt', carrierStatus: 'DELIVRD' },
+    ],
+    awaitingReceipt: false,
+  };
+  const { px, calls } = mockClient(() => ({ body: { success: true, data } }));
+  const res = await px.comms.getSms('m1');
+  assert.deepEqual([calls[0].method, calls[0].path], ['GET', '/api/v1/comms/sms/m1']);
+  assert.deepEqual(res.timeline.map((s) => s.status), ['queued', 'sent', 'delivered']);
+});
+
+test('numbers AI agent methods use the documented method and path', async () => {
+  const { px, calls } = mockClient();
+  await px.numbers.getAiAgent('d1');
+  await px.numbers.setAiAgent('d1', 'a1');
+  await px.numbers.setAiAgent('d1', null);
+  assert.deepEqual(calls.map((c) => [c.method, c.path]), [
+    ['GET', '/api/v1/dids/d1/ai-agent'],
+    ['PUT', '/api/v1/dids/d1/ai-agent'],
+    ['PUT', '/api/v1/dids/d1/ai-agent'],
+  ]);
+  assert.deepEqual(calls[1].body, { agentId: 'a1' });
+  assert.deepEqual(calls[2].body, { agentId: null });
+});
+
+test('webhooks.create sends the new SMS delivery events', async () => {
+  const { px, calls } = mockClient();
+  await px.webhooks.create({ url: 'https://example.com/hooks', events: ['sms.delivered', 'sms.failed', 'call.gathered'] });
+  assert.deepEqual([calls[0].method, calls[0].path], ['POST', '/api/v1/account/webhooks']);
+  assert.deepEqual(calls[0].body.events, ['sms.delivered', 'sms.failed', 'call.gathered']);
+});

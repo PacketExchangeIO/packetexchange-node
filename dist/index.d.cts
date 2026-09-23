@@ -403,7 +403,7 @@ interface ApiKey$1 {
     keyPrefix: string;
     label: string;
     /** null = full access; otherwise the only scopes this key may use */
-    scopes: (Array<"voice:send" | "sms:send" | "dialer:write" | "routes:read" | "account:read" | "purchases:write" | "offers:write" | "billing:write" | "numbers:read" | "numbers:write" | "account:write" | "routes:write" | "cdr:numbers" | "application:write" | "switch:manage" | "verify:write">) | null;
+    scopes: (Array<"voice:send" | "sms:send" | "dialer:write" | "routes:read" | "account:read" | "purchases:write" | "offers:write" | "billing:write" | "numbers:read" | "numbers:write" | "account:write" | "routes:write" | "cdr:numbers" | "application:write" | "switch:manage" | "verify:write" | "webhooks:write">) | null;
     environment: "live" | "test";
     /** ISO-8601 timestamp (UTC) */
     lastUsedAt: string | null;
@@ -421,7 +421,7 @@ interface CreatedApiKey {
     /** Deprecated alias of `keyPrefix`, kept for existing clients. */
     prefix: string;
     label: string;
-    scopes: (Array<"voice:send" | "sms:send" | "dialer:write" | "routes:read" | "account:read" | "purchases:write" | "offers:write" | "billing:write" | "numbers:read" | "numbers:write" | "account:write" | "routes:write" | "cdr:numbers" | "application:write" | "switch:manage" | "verify:write">) | null;
+    scopes: (Array<"voice:send" | "sms:send" | "dialer:write" | "routes:read" | "account:read" | "purchases:write" | "offers:write" | "billing:write" | "numbers:read" | "numbers:write" | "account:write" | "routes:write" | "cdr:numbers" | "application:write" | "switch:manage" | "verify:write" | "webhooks:write">) | null;
     environment: "live" | "test";
     /** ISO-8601 timestamp (UTC) */
     expiresAt: string | null;
@@ -431,7 +431,7 @@ interface Webhook {
     url: string;
     /** Last 4 characters of the signing secret, to tell secrets apart */
     secretLast4: string;
-    events: Array<"call.completed" | "sms.sent" | "sms.dlr" | "campaign.started" | "campaign.completed" | "topup.confirmed" | "balance.low" | "offer.received" | "route.purchased" | "sub_account.balance_low" | "sub_account.suspended" | "sub_account.resumed" | "sub_account.topup_requested" | "number.call.received" | "number.sms.received" | "number.voicemail.received" | "invoice.created" | "invoice.issued" | "invoice.sent" | "invoice.voided" | "invoice.reissued" | "invoice.payment" | "credit_note.issued" | "payable.created" | "netting.run" | "sell_rate.changed" | "cost_rate.scheduled" | "cost_rate.activated" | "cost_rate.rolled_back" | "sub_account.margin_below_floor" | "ping">;
+    events: Array<"call.completed" | "call.ringing" | "call.answered" | "call.gathered" | "sms.sent" | "sms.dlr" | "sms.delivered" | "sms.failed" | "campaign.started" | "campaign.completed" | "topup.confirmed" | "balance.low" | "offer.received" | "route.purchased" | "sub_account.balance_low" | "sub_account.suspended" | "sub_account.resumed" | "sub_account.topup_requested" | "number.call.received" | "number.sms.received" | "number.voicemail.received" | "invoice.created" | "invoice.issued" | "invoice.sent" | "invoice.voided" | "invoice.reissued" | "invoice.payment" | "credit_note.issued" | "payable.created" | "netting.run" | "sell_rate.changed" | "cost_rate.scheduled" | "cost_rate.activated" | "cost_rate.rolled_back" | "sub_account.margin_below_floor" | "ping">;
     /** False when you disabled it, or after sustained delivery failures */
     isActive: boolean;
     /** Consecutive failed deliveries; resets on success */
@@ -448,7 +448,7 @@ interface WebhookWithSecret {
     url: string;
     /** Last 4 characters of the signing secret, to tell secrets apart */
     secretLast4: string;
-    events: Array<"call.completed" | "sms.sent" | "sms.dlr" | "campaign.started" | "campaign.completed" | "topup.confirmed" | "balance.low" | "offer.received" | "route.purchased" | "sub_account.balance_low" | "sub_account.suspended" | "sub_account.resumed" | "sub_account.topup_requested" | "number.call.received" | "number.sms.received" | "number.voicemail.received" | "invoice.created" | "invoice.issued" | "invoice.sent" | "invoice.voided" | "invoice.reissued" | "invoice.payment" | "credit_note.issued" | "payable.created" | "netting.run" | "sell_rate.changed" | "cost_rate.scheduled" | "cost_rate.activated" | "cost_rate.rolled_back" | "sub_account.margin_below_floor" | "ping">;
+    events: Array<"call.completed" | "call.ringing" | "call.answered" | "call.gathered" | "sms.sent" | "sms.dlr" | "sms.delivered" | "sms.failed" | "campaign.started" | "campaign.completed" | "topup.confirmed" | "balance.low" | "offer.received" | "route.purchased" | "sub_account.balance_low" | "sub_account.suspended" | "sub_account.resumed" | "sub_account.topup_requested" | "number.call.received" | "number.sms.received" | "number.voicemail.received" | "invoice.created" | "invoice.issued" | "invoice.sent" | "invoice.voided" | "invoice.reissued" | "invoice.payment" | "credit_note.issued" | "payable.created" | "netting.run" | "sell_rate.changed" | "cost_rate.scheduled" | "cost_rate.activated" | "cost_rate.rolled_back" | "sub_account.margin_below_floor" | "ping">;
     /** False when you disabled it, or after sustained delivery failures */
     isActive: boolean;
     /** Consecutive failed deliveries; resets on success */
@@ -723,6 +723,19 @@ interface PricedRoute {
     exchangeScore: number | null;
     /** True only on your own listing (signed-in callers), so you are not offered your own route */
     isOwn: boolean;
+    /** SMS routes that price the country per mobile network: which network `rate` is for. Absent otherwise */
+    network?: {
+        /** Mobile network code (MCC-MNC) `rate` is for, e.g. "234-10"; null when unknown */
+        mccMnc: string | null;
+        /** Network name from public number-range data, e.g. "O2" */
+        operator: string | null;
+        /** range = number-range data; none = not determined */
+        source: "range" | "hlr" | "none";
+        /** network = that network's own rate; all_operators = the route's rate for networks it does not list separately; country = the price for other or unknown networks */
+        rateBasis: "network" | "all_operators" | "country";
+    } | null;
+    /** SMS routes that price per network: the price for other or unknown networks */
+    countryRate?: Money | null;
 }
 interface RouteRate {
     id: string;
@@ -736,6 +749,17 @@ interface RouteRate {
     /** ISO-8601 timestamp (UTC) */
     effectiveDate: string | null;
     status: string;
+    /** SMS sheets priced by network code: the network the row price came from ("214" = whole country) */
+    mccMnc?: string | null;
+    /** SMS sheets priced by network: the price per destination network (charged per network when `networkPriced` is true). A message is charged its network's rate (networks not listed pay the All Operators rate when there is one); `ratePerUnit` is the price for other or unknown networks. The network is determined from the number's range (ported numbers may be priced at the network the range belongs to) */
+    operatorRates?: (Array<{
+        /** "214-07" for one network; "214" for All Operators */
+        mccMnc: string;
+        operator: string | null;
+        rate: Money;
+    }>) | null;
+    /** True when each SMS on this row is charged its destination network's rate from `operatorRates`; `ratePerUnit` then applies to other or unknown networks */
+    networkPriced?: boolean;
     [key: string]: unknown;
 }
 interface RateSheetImport {
@@ -1129,6 +1153,91 @@ interface Offer {
         pricePerUnit: Money;
     } | null;
 }
+type CallAction = {
+    /** Text spoken by our text-to-speech voice */
+    say: string;
+    /** Overrides the call default for this action */
+    language?: "en" | "es" | "fr" | "de" | "pt" | "hi";
+} | {
+    /** HTTPS URL of an MP3 file, at most 2 MB. We download it once before dialling (public addresses only, no redirects) and play our copy */
+    play: string;
+} | {
+    gather: {
+        /** Most keys to collect */
+        digits?: number;
+        /** Seconds to wait for the first key */
+        timeout?: number;
+        /** Key that ends input early; empty for none */
+        finishOnKey?: "#" | "*" | "";
+        /** Prompt and wait again this many times in total when nothing is pressed */
+        tries?: number;
+        /** Prompt spoken while listening; a key press interrupts it */
+        say?: string;
+        /** Prompt played while listening (instead of say) */
+        play?: string;
+        language?: "en" | "es" | "fr" | "de" | "pt" | "hi";
+    };
+} | {
+    /** Seconds of silence */
+    pause: number;
+} | {
+    hangup: true;
+};
+interface CommsCallAccepted {
+    /** Use with GET /comms/calls/{id}; the same id appears on the call.* webhooks */
+    callId: string;
+    /** The call has been handed to the network and is being dialled */
+    status: "ringing";
+    mode: "async";
+    to: string;
+    from: string;
+    /** How many call actions will run on answer */
+    actions: number;
+    /** Path of GET /comms/calls/{id} for this call */
+    statusUrl: string;
+}
+interface CommsCallStatus {
+    callId: string;
+    /** queued, ringing and answered are live states; completed (answered, then ended), no_answer, busy and failed are final */
+    status: "queued" | "ringing" | "answered" | "completed" | "no_answer" | "busy" | "failed";
+    mode: "sync" | "async";
+    to: string;
+    from: string;
+    /** True for test-key calls: nothing was dialled */
+    simulated: boolean;
+    /** ISO-8601 timestamp (UTC) */
+    createdAt: string;
+    /** ISO-8601 timestamp (UTC) */
+    ringingAt: string | null;
+    /** ISO-8601 timestamp (UTC) */
+    answeredAt: string | null;
+    /** ISO-8601 timestamp (UTC) */
+    endedAt: string | null;
+    durationSeconds: number | null;
+    /** Duration rounded up to the route billing increment */
+    billableSeconds: number | null;
+    /** What the call cost you, platform fee included. Null until it ends */
+    cost: Money | null;
+    billingIncrement: string | null;
+    sipResponseCode: number | null;
+    /** The switch cause code, e.g. NORMAL_CLEARING or USER_BUSY */
+    hangupCause: string | null;
+    /** Why the call ended, in plain words. Null while it is live */
+    hangupReason: string | null;
+    /** Why the call could not be placed, when it failed before reaching the network */
+    error: string | null;
+    /** The call actions as you sent them */
+    actions: Array<unknown> | null;
+    /** Keypad input from gather actions, filled in when the call ends */
+    gathered: (Array<{
+        /** Which gather action (0 for the first) */
+        index: number;
+        /** The keys pressed, without the finish key */
+        digits: string | null;
+        /** no_input: nothing was pressed, or the call ended before this step */
+        status: "received" | "no_input";
+    }>) | null;
+}
 interface CommsCall {
     callId: string;
     to: string;
@@ -1174,6 +1283,17 @@ interface CommsSms {
     submittedAt: string;
     /** Present and true for test-key messages: nothing was sent */
     simulated?: boolean;
+    /** Present when the route prices SMS to this country per destination network. The network is determined from the number's range (ported numbers may be priced at the network the range belongs to) */
+    network?: {
+        /** Mobile network code (MCC-MNC) the message was priced as, e.g. "234-10" */
+        mccMnc: string | null;
+        /** Network name from public number-range data */
+        operator: string | null;
+        /** range = number-range data; hlr = a live network lookup; none = not determined */
+        source: "range" | "hlr" | "none";
+        /** network = that network's own rate; all_operators = the route's rate for networks it does not list separately; country = the route's price for other or unknown networks */
+        rateBasis: "network" | "all_operators" | "country";
+    } | null;
 }
 interface CommsHistoryEntry {
     id: string;
@@ -1193,16 +1313,43 @@ interface CommsHistoryEntry {
     /** ISO-8601 timestamp (UTC) */
     createdAt: string;
 }
+interface SmsTimelineStep {
+    /** queued = charged and waiting to be handed off; sent = the route accepted it; accepted = simulated on a test key; delivered / failed = final */
+    status: "queued" | "sent" | "accepted" | "delivered" | "failed";
+    /** ISO-8601 timestamp (UTC) */
+    at: string;
+    /** Where we learned it: our ledger, the hand-off to the route, the carrier's delivery receipt, or a test-key simulation */
+    source: "platform" | "submit" | "carrier_receipt" | "simulated";
+    /** On failed: SELLER_REJECTED, NO_ENDPOINT, UNDELIVERABLE, EXPIRED or REJECTED */
+    errorCode?: string | null;
+    /** The carrier receipt's own status value, e.g. DELIVRD or UNDELIV */
+    carrierStatus?: string | null;
+    /** The carrier receipt's own error value, when it sent one */
+    carrierError?: string | null;
+}
 interface CommsSmsStatus {
     messageId: string;
-    /** Last known send-time state (accepted, sent or failed), or not_found when the id is not on your account */
+    /** Current state: sent, accepted (test key), delivered or failed; not_found when the id is not on your account. delivered only ever comes from a carrier receipt */
     status: string;
-    /** Always false today: no handset delivery receipts are collected */
+    to?: string | null;
+    from?: string | null;
+    segments?: number | null;
+    /** Set when status is failed: SELLER_REJECTED (the route refused the hand-off), NO_ENDPOINT, UNDELIVERABLE, EXPIRED or REJECTED (from the carrier receipt) */
+    errorCode?: string | null;
+    /** Every state the message has been in, oldest first */
+    timeline?: Array<SmsTimelineStep>;
+    /** True while the message is sent and no carrier receipt has arrived. It stays true for good on a route that returns no receipts */
+    awaitingReceipt?: boolean;
+    /** Whether the route that carried this message has returned at least one carrier receipt in the last 30 days. null for test-key messages */
+    routeReturnsReceipts?: boolean | null;
+    /** True: the platform collects carrier delivery receipts. Whether one arrives for this message depends on the route (routeReturnsReceipts) */
     dlrSupported?: boolean;
-    /** US dollars as a decimal string with exactly 6 decimal places, e.g. "0.012500". Do money arithmetic with a decimal type, not floating point. */
+    /** Present and true for test-key messages: nothing was sent */
+    simulated?: boolean;
+    /** The ledger amount of the charge (negative) */
     cost?: Money;
     reference?: string | null;
-    /** ISO-8601 timestamp (UTC) */
+    /** When the message was charged */
     sentAt?: string;
     /** Explanation, present when status is not_found */
     message?: string;
@@ -1379,6 +1526,8 @@ interface Did {
     endpointCause: string | null;
     /** ISO-8601 timestamp (UTC) */
     endpointCheckedAt: string | null;
+    /** The AI voice agent answering inbound calls to this number, or null (PUT /dids/{id}/ai-agent) */
+    aiAgentId: string | null;
     /** Days an unpaid (suspended) number is held before release */
     graceDays: number;
 }
@@ -1581,7 +1730,7 @@ interface DidMessage {
     status: "received" | "queued" | "sent" | "delivered" | "failed";
     error: string | null;
     /** Upstream carrier message id */
-    didwwMessageId: string | null;
+    providerMessageId: string | null;
     /** ISO-8601 timestamp (UTC) */
     readAt: string | null;
     /** ISO-8601 timestamp (UTC) */
@@ -1698,6 +1847,124 @@ interface DidCliEligible {
     didType: string | null;
     channels: number;
     label: string | null;
+}
+interface DidAiAgent {
+    didId: string;
+    agentId: string | null;
+    agentName: string | null;
+    /** A disabled agent does not answer; the number rings its call flow */
+    agentEnabled: boolean | null;
+    /** Whether inbound AI answering is switched on for the platform right now */
+    live: boolean;
+    /** AI voice rate in USD per minute, billed per second */
+    ratePerMin: string;
+}
+interface NumberLookup {
+    /** What you sent */
+    input: string;
+    /** Whether the input is a well-formed E.164 number */
+    valid: boolean;
+    /** Why it is not valid, when it is not */
+    reason: string | null;
+    /** + followed by digits, e.g. +447700900123 */
+    e164: string | null;
+    /** +<country code> <rest>, e.g. +44 7700900123 */
+    internationalFormat: string | null;
+    country: {
+        /** ISO 3166 alpha-2. null for a shared dial code the decks do not resolve (+1, +7) */
+        iso: string | null;
+        name: string;
+        dialCode: string;
+        /** rate_decks when the matching destinations name the country; dial_code otherwise */
+        basis: "rate_decks" | "dial_code";
+    } | null;
+    /** Inferred from the destination names on the rate decks that match the number (prefix-based, not an HLR query) */
+    numberType: "mobile" | "fixed" | "toll_free" | "premium" | "unknown";
+    /** 0 to 1: the share of matching decks that agree on numberType */
+    numberTypeConfidence: number;
+    /** The network, only when at least three different sellers' decks name the same one for this prefix. Prefix-based: a ported number keeps its original network here */
+    operator: string | null;
+    /** The mobile network the number's RANGE belongs to, from public number-range data. A ported number keeps its range's network here. null when the range is not known */
+    network: {
+        /** Mobile network code (MCC-MNC), when known, e.g. "234-58" */
+        mccMnc: string | null;
+        /** The network the number range was allocated to, e.g. "Manx Telecom" */
+        operator: string | null;
+        /** range = public number-range data */
+        source: "range" | "hlr";
+    } | null;
+    /** The longest dial prefix any live deck matched */
+    matchedPrefix: string | null;
+    risk: {
+        /** A destination we do not carry (embargoed or platform-blocked) */
+        blocked: boolean;
+        sanctioned: boolean;
+        /** Premium-rate, or a prefix on our high-risk list (satellite, remote and high-cost destinations often abused for revenue-share fraud) */
+        highRisk: boolean;
+        reasons: Array<string>;
+    };
+    pricing: {
+        /** The cheapest live public route for the number, or null when none serves it */
+        voice: {
+            /** USD, 6 decimals: per minute for voice, per message for SMS */
+            rate: string;
+            currency: "USD";
+            unit: "min" | "msg";
+            /** e.g. "60/60"; null when the listing does not state one */
+            billingIncrement: string | null;
+            /** The destination the number matched on that route, e.g. "United Kingdom-Mobile" */
+            destination: string;
+            /** The cheapest public route that serves the number (see GET /routes/{id}) */
+            routeId: string;
+            /** How many public routes serve the number */
+            routesServing: number;
+            /** SMS only: the network `rate` is for, when the route prices per network; null otherwise */
+            network?: {
+                /** Mobile network code (MCC-MNC) the price is for, e.g. "234-10"; null when unknown */
+                mccMnc: string | null;
+                /** Network name from public number-range data, e.g. "O2" */
+                operator: string | null;
+                /** range = number-range data; none = not determined */
+                source: "range" | "hlr" | "none";
+                /** network = that network's own rate; all_operators = the route's rate for networks it does not list separately; country = the route's price for other or unknown networks */
+                rateBasis: "network" | "all_operators" | "country";
+            } | null;
+            /** SMS only: the route's price for other or unknown networks (USD, 6 decimals), when it prices per network */
+            countryRate?: string | null;
+        } | null;
+        /** The cheapest live public route for the number, or null when none serves it */
+        sms: {
+            /** USD, 6 decimals: per minute for voice, per message for SMS */
+            rate: string;
+            currency: "USD";
+            unit: "min" | "msg";
+            /** e.g. "60/60"; null when the listing does not state one */
+            billingIncrement: string | null;
+            /** The destination the number matched on that route, e.g. "United Kingdom-Mobile" */
+            destination: string;
+            /** The cheapest public route that serves the number (see GET /routes/{id}) */
+            routeId: string;
+            /** How many public routes serve the number */
+            routesServing: number;
+            /** SMS only: the network `rate` is for, when the route prices per network; null otherwise */
+            network?: {
+                /** Mobile network code (MCC-MNC) the price is for, e.g. "234-10"; null when unknown */
+                mccMnc: string | null;
+                /** Network name from public number-range data, e.g. "O2" */
+                operator: string | null;
+                /** range = number-range data; none = not determined */
+                source: "range" | "hlr" | "none";
+                /** network = that network's own rate; all_operators = the route's rate for networks it does not list separately; country = the route's price for other or unknown networks */
+                rateBasis: "network" | "all_operators" | "country";
+            } | null;
+            /** SMS only: the route's price for other or unknown networks (USD, 6 decimals), when it prices per network */
+            countryRate?: string | null;
+        } | null;
+    };
+    /** Always prefix: no carrier network query is made */
+    method: "prefix";
+    /** When this answer was computed. Answers are cached for up to 10 minutes */
+    cachedAt: string;
 }
 interface LedgerTransaction {
     id: string;
@@ -4401,6 +4668,88 @@ interface SwitchDncHonorSetting {
         off: number;
     };
 }
+interface PricingDestination {
+    /** URL slug from the country name, e.g. "pakistan" */
+    slug: string;
+    country: string;
+    /** E.164 country calling code, digits only */
+    countryCode: string;
+    /** Live routes that price at least one number type */
+    routes: number;
+    /** Lowest mobile, fixed or country-wide rate */
+    lowest: string;
+    /** `mobile` and `fixed`: rate-sheet rows named for that number type. `countryWide`: the bare country row (or a single-price listing), which prices every number without a more specific row. */
+    lowestBand: "mobile" | "fixed" | "countryWide";
+    /** Per minute (voice) or per message (SMS) */
+    unit: "min" | "msg";
+}
+interface PricingDestinationDetail {
+    /** URL slug from the country name, e.g. "pakistan" */
+    slug: string;
+    country: string;
+    /** E.164 country calling code, digits only */
+    countryCode: string;
+    /** Live routes that price at least one number type */
+    routes: number;
+    /** Lowest mobile, fixed or country-wide rate */
+    lowest: string;
+    /** `mobile` and `fixed`: rate-sheet rows named for that number type. `countryWide`: the bare country row (or a single-price listing), which prices every number without a more specific row. */
+    lowestBand: "mobile" | "fixed" | "countryWide";
+    /** Per minute (voice) or per message (SMS) */
+    unit: "min" | "msg";
+    type: "voice" | "sms";
+    /** Highest route "from" price in the destination */
+    highest: string;
+    /** Lowest rate per number type */
+    bands: Array<{
+        /** `mobile` and `fixed`: rate-sheet rows named for that number type. `countryWide`: the bare country row (or a single-price listing), which prices every number without a more specific row. */
+        key: "mobile" | "fixed" | "countryWide";
+        /** USD, 6-decimal string, e.g. "0.020370" */
+        from: string;
+        routes: number;
+    }>;
+    /** Mobile operators broken out on at least two routes, cheapest first, at most 12 */
+    operators: Array<{
+        name: string;
+        /** USD, 6-decimal string, e.g. "0.020370" */
+        from: string;
+        routes: number;
+    }>;
+    /** Caller-ID handling the sellers state (voice only) */
+    cliTypes: Array<{
+        cliType: string;
+        routes: number;
+    }>;
+    /** Billing increments, e.g. "1/1" (voice only) */
+    increments: Array<{
+        increment: string;
+        routes: number;
+    }>;
+    /** Routes whose seller states an ASR */
+    routesWithStatedAsr: number;
+    /** Named breakouts that are not a headline number type (toll-free, premium, cities) */
+    otherBreakouts: number;
+    /** The five cheapest routes, as anonymous facts */
+    topRoutes: Array<{
+        rank: number;
+        /** USD, 6-decimal string, e.g. "0.020370" */
+        from: string;
+        /** USD, 6-decimal string, e.g. "0.020370" */
+        mobileFrom: string | null;
+        cliType: string;
+        billingIncrement: string | null;
+        /** Quality tier the route is listed under */
+        routeType: string;
+        /** Seller-stated ASR %, not measured */
+        statedAsr: string | null;
+        /** Seller-stated ACD in seconds, not measured */
+        statedAcd: string | null;
+    }>;
+    /** Destinations in the same world numbering zone */
+    related: Array<PricingDestination>;
+    /** ISO-8601 timestamp (UTC) */
+    updatedAt: string;
+}
 interface SystemHealth {
     components: Array<{
         name: string;
@@ -5487,13 +5836,19 @@ interface Operations {
         path: "/api/v1/comms/calls";
         tag: "Voice and SMS";
     };
+    /** Get one call: live status, cost and gathered digits */
+    getCommsCallsById: {
+        method: "GET";
+        path: "/api/v1/comms/calls/{id}";
+        tag: "Voice and SMS";
+    };
     /** List your SMS history */
     getCommsSms: {
         method: "GET";
         path: "/api/v1/comms/sms";
         tag: "Voice and SMS";
     };
-    /** Get the status of a sent SMS */
+    /** Get the delivery status and timeline of a sent SMS */
     getCommsSmsByMessageId: {
         method: "GET";
         path: "/api/v1/comms/sms/{messageId}";
@@ -5635,6 +5990,12 @@ interface Operations {
     getDidsById: {
         method: "GET";
         path: "/api/v1/dids/{id}";
+        tag: "Phone numbers";
+    };
+    /** See which AI voice agent answers a number */
+    getDidsByIdAiAgent: {
+        method: "GET";
+        path: "/api/v1/dids/{id}/ai-agent";
         tag: "Phone numbers";
     };
     /** Get spend and usage analytics for a number */
@@ -5835,6 +6196,12 @@ interface Operations {
         path: "/api/v1/kyc/status";
         tag: "Compliance";
     };
+    /** Look up a phone number */
+    getLookupByNumber: {
+        method: "GET";
+        path: "/api/v1/lookup/{number}";
+        tag: "Number lookup";
+    };
     /** Get the marketplace summary */
     getMarketsSummary: {
         method: "GET";
@@ -5876,6 +6243,18 @@ interface Operations {
         method: "GET";
         path: "/api/v1/pricing/ai-voice";
         tag: "System";
+    };
+    /** List destinations with live routes and their lowest rates */
+    getPricingDestinations: {
+        method: "GET";
+        path: "/api/v1/pricing/destinations";
+        tag: "Markets";
+    };
+    /** Get the live market for one destination */
+    getPricingDestinationsBySlug: {
+        method: "GET";
+        path: "/api/v1/pricing/destinations/{slug}";
+        tag: "Markets";
     };
     /** Look at a saved draft listing */
     getPublicListingsByToken: {
@@ -9273,6 +9652,12 @@ interface Operations {
         path: "/api/v1/dialer/campaigns/{id}/cli";
         tag: "Dialer";
     };
+    /** Point a number at an AI voice agent */
+    putDidsByIdAiAgent: {
+        method: "PUT";
+        path: "/api/v1/dids/{id}/ai-agent";
+        tag: "Phone numbers";
+    };
     /** Configure the IVR menu on a number */
     putDidsByIdFeaturesIvr: {
         method: "PUT";
@@ -9453,9 +9838,12 @@ type schemas_BillingCdr = BillingCdr;
 type schemas_BillingDocument = BillingDocument;
 type schemas_BillingExportJob = BillingExportJob;
 type schemas_BulkEndpointResult = BulkEndpointResult;
+type schemas_CallAction = CallAction;
 type schemas_CliTest = CliTest;
 type schemas_CommsBulkSmsResult = CommsBulkSmsResult;
 type schemas_CommsCall = CommsCall;
+type schemas_CommsCallAccepted = CommsCallAccepted;
+type schemas_CommsCallStatus = CommsCallStatus;
 type schemas_CommsHistoryEntry = CommsHistoryEntry;
 type schemas_CommsSms = CommsSms;
 type schemas_CommsSmsStatus = CommsSmsStatus;
@@ -9476,6 +9864,7 @@ type schemas_DialerNumbersUploadResult = DialerNumbersUploadResult;
 type schemas_DialerRevshareCaller = DialerRevshareCaller;
 type schemas_DialerSmsTemplate = DialerSmsTemplate;
 type schemas_Did = Did;
+type schemas_DidAiAgent = DidAiAgent;
 type schemas_DidAnalytics = DidAnalytics;
 type schemas_DidBulkBuyResult = DidBulkBuyResult;
 type schemas_DidCallFlow = DidCallFlow;
@@ -9507,6 +9896,7 @@ type schemas_MarketplaceStats = MarketplaceStats;
 type schemas_Message = Message;
 type schemas_Money = Money;
 type schemas_Notification = Notification;
+type schemas_NumberLookup = NumberLookup;
 type schemas_Offer = Offer;
 type schemas_OperationId = OperationId;
 type schemas_Operations = Operations;
@@ -9514,6 +9904,8 @@ type schemas_OwnRoute = OwnRoute;
 type schemas_Payout = Payout;
 type schemas_PriceNumberResult = PriceNumberResult;
 type schemas_PricedRoute = PricedRoute;
+type schemas_PricingDestination = PricingDestination;
+type schemas_PricingDestinationDetail = PricingDestinationDetail;
 type schemas_PurchaseDetail = PurchaseDetail;
 type schemas_PurchaseRow = PurchaseRow;
 type schemas_PurchaseUpcomingRateChanges = PurchaseUpcomingRateChanges;
@@ -9534,6 +9926,7 @@ type schemas_RouteTestItem = RouteTestItem;
 type schemas_RouteTestPreview = RouteTestPreview;
 type schemas_RoutingOrderEntry = RoutingOrderEntry;
 type schemas_RoutingOrderResult = RoutingOrderResult;
+type schemas_SmsTimelineStep = SmsTimelineStep;
 type schemas_StatusIncident = StatusIncident;
 type schemas_StatusPage = StatusPage;
 type schemas_SubAccount = SubAccount;
@@ -9624,7 +10017,7 @@ type schemas_WebhookDelivery = WebhookDelivery;
 type schemas_WebhookWithSecret = WebhookWithSecret;
 type schemas_WhitelistedIp = WhitelistedIp;
 declare namespace schemas {
-  export type { schemas_AccountActivatedIp as AccountActivatedIp, schemas_AccountActivityEvent as AccountActivityEvent, schemas_AccountBalance as AccountBalance, schemas_AccountClosurePreview as AccountClosurePreview, schemas_AccountConnectivityBrief as AccountConnectivityBrief, schemas_AccountDedicatedIp as AccountDedicatedIp, schemas_AccountFavoriteRoute as AccountFavoriteRoute, schemas_AccountInterconnect as AccountInterconnect, schemas_AccountProfile as AccountProfile, schemas_AccountSavedSearch as AccountSavedSearch, schemas_AccountSpendAlerts as AccountSpendAlerts, schemas_AccountSwitchEntitlement as AccountSwitchEntitlement, schemas_AiAgent as AiAgent, schemas_AiAgentDraft as AiAgentDraft, schemas_AiAgentTurn as AiAgentTurn, schemas_AiVoice as AiVoice, ApiKey$1 as ApiKey, schemas_ApiUsage as ApiUsage, schemas_ApplicationSettings as ApplicationSettings, schemas_AuthDeviceSession as AuthDeviceSession, schemas_AuthMfaChallenge as AuthMfaChallenge, schemas_AuthSession as AuthSession, schemas_AuthTokens as AuthTokens, schemas_AutoRecharge as AutoRecharge, schemas_BillingCdr as BillingCdr, schemas_BillingDocument as BillingDocument, schemas_BillingExportJob as BillingExportJob, schemas_BulkEndpointResult as BulkEndpointResult, schemas_CliTest as CliTest, schemas_CommsBulkSmsResult as CommsBulkSmsResult, schemas_CommsCall as CommsCall, schemas_CommsHistoryEntry as CommsHistoryEntry, schemas_CommsSms as CommsSms, schemas_CommsSmsStatus as CommsSmsStatus, schemas_ConnectionProfile as ConnectionProfile, schemas_ConnectivityTestResult as ConnectivityTestResult, schemas_CreatedApiKey as CreatedApiKey, schemas_Deleted as Deleted, schemas_DialerCallerIdAddResult as DialerCallerIdAddResult, schemas_DialerCallerIdNumber as DialerCallerIdNumber, schemas_DialerCallerIdSet as DialerCallerIdSet, DialerCampaign$1 as DialerCampaign, schemas_DialerCampaignCli as DialerCampaignCli, DialerCampaignStats$1 as DialerCampaignStats, schemas_DialerCliSet as DialerCliSet, schemas_DialerCompatibleTargets as DialerCompatibleTargets, schemas_DialerContactList as DialerContactList, schemas_DialerContactMapping as DialerContactMapping, schemas_DialerContactParseResult as DialerContactParseResult, DialerNumber$1 as DialerNumber, schemas_DialerNumbersUploadResult as DialerNumbersUploadResult, schemas_DialerRevshareCaller as DialerRevshareCaller, schemas_DialerSmsTemplate as DialerSmsTemplate, schemas_Did as Did, schemas_DidAnalytics as DidAnalytics, schemas_DidBulkBuyResult as DidBulkBuyResult, schemas_DidCallFlow as DidCallFlow, schemas_DidCalls as DidCalls, schemas_DidCatalogCountry as DidCatalogCountry, schemas_DidCatalogGroup as DidCatalogGroup, schemas_DidCatalogSku as DidCatalogSku, schemas_DidCatalogType as DidCatalogType, schemas_DidCliEligible as DidCliEligible, schemas_DidConversation as DidConversation, schemas_DidFeatures as DidFeatures, schemas_DidGreeting as DidGreeting, schemas_DidListingRequestView as DidListingRequestView, schemas_DidMessage as DidMessage, schemas_DidNumbersOverview as DidNumbersOverview, schemas_DidRecording as DidRecording, schemas_DidSipLine as DidSipLine, schemas_DidSipLineLogin as DidSipLineLogin, schemas_DidSmsSettings as DidSmsSettings, schemas_DncEntry as DncEntry, Error$1 as Error, schemas_ErrorEnvelope as ErrorEnvelope, schemas_Interconnection as Interconnection, schemas_KycStatus as KycStatus, schemas_LedgerTransaction as LedgerTransaction, schemas_ListingHealth as ListingHealth, schemas_MarketplaceRoute as MarketplaceRoute, schemas_MarketplaceSellerProfile as MarketplaceSellerProfile, schemas_MarketplaceStats as MarketplaceStats, schemas_Message as Message, schemas_Money as Money, schemas_Notification as Notification, schemas_Offer as Offer, schemas_OperationId as OperationId, schemas_Operations as Operations, schemas_OwnRoute as OwnRoute, schemas_Payout as Payout, schemas_PriceNumberResult as PriceNumberResult, schemas_PricedRoute as PricedRoute, Purchase$1 as Purchase, schemas_PurchaseDetail as PurchaseDetail, schemas_PurchaseRow as PurchaseRow, schemas_PurchaseUpcomingRateChanges as PurchaseUpcomingRateChanges, schemas_RateSheetImport as RateSheetImport, ResolvedRoute$1 as ResolvedRoute, schemas_RevshareIvrConfig as RevshareIvrConfig, schemas_RevshareIvrSet as RevshareIvrSet, schemas_RevshareNumber as RevshareNumber, schemas_RevsharePayout as RevsharePayout, schemas_RevshareTaking as RevshareTaking, schemas_RouteAccessGrant as RouteAccessGrant, schemas_RouteForCandidate as RouteForCandidate, schemas_RouteForResult as RouteForResult, schemas_RouteRate as RouteRate, schemas_RouteReport as RouteReport, schemas_RouteReportThread as RouteReportThread, schemas_RouteTestBatch as RouteTestBatch, schemas_RouteTestItem as RouteTestItem, schemas_RouteTestPreview as RouteTestPreview, schemas_RoutingOrderEntry as RoutingOrderEntry, schemas_RoutingOrderResult as RoutingOrderResult, schemas_StatusIncident as StatusIncident, schemas_StatusPage as StatusPage, schemas_SubAccount as SubAccount, schemas_SubAccountCreated as SubAccountCreated, schemas_SupportTicket as SupportTicket, schemas_SupportTicketMessage as SupportTicketMessage, schemas_SwitchApproval as SwitchApproval, schemas_SwitchCdr as SwitchCdr, schemas_SwitchCdrExport as SwitchCdrExport, schemas_SwitchCdrView as SwitchCdrView, schemas_SwitchCostAnalysis as SwitchCostAnalysis, schemas_SwitchCounterparty as SwitchCounterparty, schemas_SwitchCreditNote as SwitchCreditNote, schemas_SwitchCustomer as SwitchCustomer, schemas_SwitchCustomerAttentionItem as SwitchCustomerAttentionItem, schemas_SwitchCustomerBillingProfile as SwitchCustomerBillingProfile, schemas_SwitchCustomerBillingSummary as SwitchCustomerBillingSummary, schemas_SwitchCustomerContact as SwitchCustomerContact, schemas_SwitchCustomerCreated as SwitchCustomerCreated, schemas_SwitchCustomerCreditPosition as SwitchCustomerCreditPosition, schemas_SwitchCustomerInvoicePreview as SwitchCustomerInvoicePreview, schemas_SwitchCustomerIssue as SwitchCustomerIssue, schemas_SwitchCustomerIssuedInvoice as SwitchCustomerIssuedInvoice, schemas_SwitchCustomerLifecycle as SwitchCustomerLifecycle, schemas_SwitchCustomerLifecycleEntry as SwitchCustomerLifecycleEntry, schemas_SwitchCustomerListRow as SwitchCustomerListRow, schemas_SwitchCustomerNote as SwitchCustomerNote, schemas_SwitchCustomerOverview as SwitchCustomerOverview, schemas_SwitchCustomerPayment as SwitchCustomerPayment, schemas_SwitchCustomerQuality as SwitchCustomerQuality, schemas_SwitchCustomerRateChange as SwitchCustomerRateChange, schemas_SwitchCustomerRateNotice as SwitchCustomerRateNotice, schemas_SwitchCustomerRoutingAssignment as SwitchCustomerRoutingAssignment, schemas_SwitchCustomerSellDeckRef as SwitchCustomerSellDeckRef, schemas_SwitchCustomerSellRate as SwitchCustomerSellRate, schemas_SwitchCustomerSellRatePage as SwitchCustomerSellRatePage, schemas_SwitchCustomerSipCredentials as SwitchCustomerSipCredentials, schemas_SwitchCustomerTrunk as SwitchCustomerTrunk, schemas_SwitchCustomerTrunkListRow as SwitchCustomerTrunkListRow, schemas_SwitchDeckSheetResult as SwitchDeckSheetResult, schemas_SwitchDialplan as SwitchDialplan, schemas_SwitchDncHonorSetting as SwitchDncHonorSetting, schemas_SwitchEligibleSupplier as SwitchEligibleSupplier, schemas_SwitchFraudSettings as SwitchFraudSettings, schemas_SwitchInvoice as SwitchInvoice, schemas_SwitchInvoiceDetail as SwitchInvoiceDetail, schemas_SwitchInvoicePreview as SwitchInvoicePreview, schemas_SwitchIpAcl as SwitchIpAcl, schemas_SwitchIssue as SwitchIssue, schemas_SwitchPayable as SwitchPayable, schemas_SwitchPayment as SwitchPayment, schemas_SwitchProvider as SwitchProvider, schemas_SwitchProviderContact as SwitchProviderContact, schemas_SwitchProviderDetail as SwitchProviderDetail, schemas_SwitchProviderDispute as SwitchProviderDispute, schemas_SwitchProviderList as SwitchProviderList, schemas_SwitchRateDeck as SwitchRateDeck, schemas_SwitchRateDeckDiff as SwitchRateDeckDiff, schemas_SwitchRatingOutcome as SwitchRatingOutcome, schemas_SwitchRouteGroup as SwitchRouteGroup, schemas_SwitchRouteTrace as SwitchRouteTrace, schemas_SwitchSbcProfile as SwitchSbcProfile, schemas_SwitchSellDeck as SwitchSellDeck, schemas_SwitchSellDeckRow as SwitchSellDeckRow, schemas_SwitchSellRate as SwitchSellRate, schemas_SwitchSessionMargin as SwitchSessionMargin, schemas_SwitchSmsEndpointTest as SwitchSmsEndpointTest, schemas_SwitchSupplierTrunk as SwitchSupplierTrunk, schemas_SwitchSupplierTrunkDetail as SwitchSupplierTrunkDetail, schemas_SwitchTeamMember as SwitchTeamMember, schemas_SwitchTrunkAddressPanel as SwitchTrunkAddressPanel, schemas_SwitchTrunkChangeRequest as SwitchTrunkChangeRequest, schemas_SwitchTrunkConfigVersion as SwitchTrunkConfigVersion, schemas_SwitchTrunkCredentialStatus as SwitchTrunkCredentialStatus, schemas_SwitchTrunkEffectiveConfig as SwitchTrunkEffectiveConfig, schemas_SwitchTrunkEffectiveSellDeck as SwitchTrunkEffectiveSellDeck, schemas_SwitchTrunkEndpoint as SwitchTrunkEndpoint, schemas_SwitchTrunkRate as SwitchTrunkRate, schemas_SwitchTrunkReadiness as SwitchTrunkReadiness, schemas_SystemHealth as SystemHealth, schemas_TaxInvoice as TaxInvoice, schemas_TaxInvoiceSummary as TaxInvoiceSummary, schemas_Topup as Topup, schemas_UsComplianceProfile as UsComplianceProfile, schemas_ValidationIssue as ValidationIssue, Verification$1 as Verification, VerifyCheckResult$1 as VerifyCheckResult, VerifyStartResult$1 as VerifyStartResult, VoiceOtpResult$1 as VoiceOtpResult, VoiceOtpStatus$1 as VoiceOtpStatus, schemas_Webhook as Webhook, schemas_WebhookDelivery as WebhookDelivery, schemas_WebhookWithSecret as WebhookWithSecret, schemas_WhitelistedIp as WhitelistedIp };
+  export type { schemas_AccountActivatedIp as AccountActivatedIp, schemas_AccountActivityEvent as AccountActivityEvent, schemas_AccountBalance as AccountBalance, schemas_AccountClosurePreview as AccountClosurePreview, schemas_AccountConnectivityBrief as AccountConnectivityBrief, schemas_AccountDedicatedIp as AccountDedicatedIp, schemas_AccountFavoriteRoute as AccountFavoriteRoute, schemas_AccountInterconnect as AccountInterconnect, schemas_AccountProfile as AccountProfile, schemas_AccountSavedSearch as AccountSavedSearch, schemas_AccountSpendAlerts as AccountSpendAlerts, schemas_AccountSwitchEntitlement as AccountSwitchEntitlement, schemas_AiAgent as AiAgent, schemas_AiAgentDraft as AiAgentDraft, schemas_AiAgentTurn as AiAgentTurn, schemas_AiVoice as AiVoice, ApiKey$1 as ApiKey, schemas_ApiUsage as ApiUsage, schemas_ApplicationSettings as ApplicationSettings, schemas_AuthDeviceSession as AuthDeviceSession, schemas_AuthMfaChallenge as AuthMfaChallenge, schemas_AuthSession as AuthSession, schemas_AuthTokens as AuthTokens, schemas_AutoRecharge as AutoRecharge, schemas_BillingCdr as BillingCdr, schemas_BillingDocument as BillingDocument, schemas_BillingExportJob as BillingExportJob, schemas_BulkEndpointResult as BulkEndpointResult, schemas_CallAction as CallAction, schemas_CliTest as CliTest, schemas_CommsBulkSmsResult as CommsBulkSmsResult, schemas_CommsCall as CommsCall, schemas_CommsCallAccepted as CommsCallAccepted, schemas_CommsCallStatus as CommsCallStatus, schemas_CommsHistoryEntry as CommsHistoryEntry, schemas_CommsSms as CommsSms, schemas_CommsSmsStatus as CommsSmsStatus, schemas_ConnectionProfile as ConnectionProfile, schemas_ConnectivityTestResult as ConnectivityTestResult, schemas_CreatedApiKey as CreatedApiKey, schemas_Deleted as Deleted, schemas_DialerCallerIdAddResult as DialerCallerIdAddResult, schemas_DialerCallerIdNumber as DialerCallerIdNumber, schemas_DialerCallerIdSet as DialerCallerIdSet, DialerCampaign$1 as DialerCampaign, schemas_DialerCampaignCli as DialerCampaignCli, DialerCampaignStats$1 as DialerCampaignStats, schemas_DialerCliSet as DialerCliSet, schemas_DialerCompatibleTargets as DialerCompatibleTargets, schemas_DialerContactList as DialerContactList, schemas_DialerContactMapping as DialerContactMapping, schemas_DialerContactParseResult as DialerContactParseResult, DialerNumber$1 as DialerNumber, schemas_DialerNumbersUploadResult as DialerNumbersUploadResult, schemas_DialerRevshareCaller as DialerRevshareCaller, schemas_DialerSmsTemplate as DialerSmsTemplate, schemas_Did as Did, schemas_DidAiAgent as DidAiAgent, schemas_DidAnalytics as DidAnalytics, schemas_DidBulkBuyResult as DidBulkBuyResult, schemas_DidCallFlow as DidCallFlow, schemas_DidCalls as DidCalls, schemas_DidCatalogCountry as DidCatalogCountry, schemas_DidCatalogGroup as DidCatalogGroup, schemas_DidCatalogSku as DidCatalogSku, schemas_DidCatalogType as DidCatalogType, schemas_DidCliEligible as DidCliEligible, schemas_DidConversation as DidConversation, schemas_DidFeatures as DidFeatures, schemas_DidGreeting as DidGreeting, schemas_DidListingRequestView as DidListingRequestView, schemas_DidMessage as DidMessage, schemas_DidNumbersOverview as DidNumbersOverview, schemas_DidRecording as DidRecording, schemas_DidSipLine as DidSipLine, schemas_DidSipLineLogin as DidSipLineLogin, schemas_DidSmsSettings as DidSmsSettings, schemas_DncEntry as DncEntry, Error$1 as Error, schemas_ErrorEnvelope as ErrorEnvelope, schemas_Interconnection as Interconnection, schemas_KycStatus as KycStatus, schemas_LedgerTransaction as LedgerTransaction, schemas_ListingHealth as ListingHealth, schemas_MarketplaceRoute as MarketplaceRoute, schemas_MarketplaceSellerProfile as MarketplaceSellerProfile, schemas_MarketplaceStats as MarketplaceStats, schemas_Message as Message, schemas_Money as Money, schemas_Notification as Notification, schemas_NumberLookup as NumberLookup, schemas_Offer as Offer, schemas_OperationId as OperationId, schemas_Operations as Operations, schemas_OwnRoute as OwnRoute, schemas_Payout as Payout, schemas_PriceNumberResult as PriceNumberResult, schemas_PricedRoute as PricedRoute, schemas_PricingDestination as PricingDestination, schemas_PricingDestinationDetail as PricingDestinationDetail, Purchase$1 as Purchase, schemas_PurchaseDetail as PurchaseDetail, schemas_PurchaseRow as PurchaseRow, schemas_PurchaseUpcomingRateChanges as PurchaseUpcomingRateChanges, schemas_RateSheetImport as RateSheetImport, ResolvedRoute$1 as ResolvedRoute, schemas_RevshareIvrConfig as RevshareIvrConfig, schemas_RevshareIvrSet as RevshareIvrSet, schemas_RevshareNumber as RevshareNumber, schemas_RevsharePayout as RevsharePayout, schemas_RevshareTaking as RevshareTaking, schemas_RouteAccessGrant as RouteAccessGrant, schemas_RouteForCandidate as RouteForCandidate, schemas_RouteForResult as RouteForResult, schemas_RouteRate as RouteRate, schemas_RouteReport as RouteReport, schemas_RouteReportThread as RouteReportThread, schemas_RouteTestBatch as RouteTestBatch, schemas_RouteTestItem as RouteTestItem, schemas_RouteTestPreview as RouteTestPreview, schemas_RoutingOrderEntry as RoutingOrderEntry, schemas_RoutingOrderResult as RoutingOrderResult, schemas_SmsTimelineStep as SmsTimelineStep, schemas_StatusIncident as StatusIncident, schemas_StatusPage as StatusPage, schemas_SubAccount as SubAccount, schemas_SubAccountCreated as SubAccountCreated, schemas_SupportTicket as SupportTicket, schemas_SupportTicketMessage as SupportTicketMessage, schemas_SwitchApproval as SwitchApproval, schemas_SwitchCdr as SwitchCdr, schemas_SwitchCdrExport as SwitchCdrExport, schemas_SwitchCdrView as SwitchCdrView, schemas_SwitchCostAnalysis as SwitchCostAnalysis, schemas_SwitchCounterparty as SwitchCounterparty, schemas_SwitchCreditNote as SwitchCreditNote, schemas_SwitchCustomer as SwitchCustomer, schemas_SwitchCustomerAttentionItem as SwitchCustomerAttentionItem, schemas_SwitchCustomerBillingProfile as SwitchCustomerBillingProfile, schemas_SwitchCustomerBillingSummary as SwitchCustomerBillingSummary, schemas_SwitchCustomerContact as SwitchCustomerContact, schemas_SwitchCustomerCreated as SwitchCustomerCreated, schemas_SwitchCustomerCreditPosition as SwitchCustomerCreditPosition, schemas_SwitchCustomerInvoicePreview as SwitchCustomerInvoicePreview, schemas_SwitchCustomerIssue as SwitchCustomerIssue, schemas_SwitchCustomerIssuedInvoice as SwitchCustomerIssuedInvoice, schemas_SwitchCustomerLifecycle as SwitchCustomerLifecycle, schemas_SwitchCustomerLifecycleEntry as SwitchCustomerLifecycleEntry, schemas_SwitchCustomerListRow as SwitchCustomerListRow, schemas_SwitchCustomerNote as SwitchCustomerNote, schemas_SwitchCustomerOverview as SwitchCustomerOverview, schemas_SwitchCustomerPayment as SwitchCustomerPayment, schemas_SwitchCustomerQuality as SwitchCustomerQuality, schemas_SwitchCustomerRateChange as SwitchCustomerRateChange, schemas_SwitchCustomerRateNotice as SwitchCustomerRateNotice, schemas_SwitchCustomerRoutingAssignment as SwitchCustomerRoutingAssignment, schemas_SwitchCustomerSellDeckRef as SwitchCustomerSellDeckRef, schemas_SwitchCustomerSellRate as SwitchCustomerSellRate, schemas_SwitchCustomerSellRatePage as SwitchCustomerSellRatePage, schemas_SwitchCustomerSipCredentials as SwitchCustomerSipCredentials, schemas_SwitchCustomerTrunk as SwitchCustomerTrunk, schemas_SwitchCustomerTrunkListRow as SwitchCustomerTrunkListRow, schemas_SwitchDeckSheetResult as SwitchDeckSheetResult, schemas_SwitchDialplan as SwitchDialplan, schemas_SwitchDncHonorSetting as SwitchDncHonorSetting, schemas_SwitchEligibleSupplier as SwitchEligibleSupplier, schemas_SwitchFraudSettings as SwitchFraudSettings, schemas_SwitchInvoice as SwitchInvoice, schemas_SwitchInvoiceDetail as SwitchInvoiceDetail, schemas_SwitchInvoicePreview as SwitchInvoicePreview, schemas_SwitchIpAcl as SwitchIpAcl, schemas_SwitchIssue as SwitchIssue, schemas_SwitchPayable as SwitchPayable, schemas_SwitchPayment as SwitchPayment, schemas_SwitchProvider as SwitchProvider, schemas_SwitchProviderContact as SwitchProviderContact, schemas_SwitchProviderDetail as SwitchProviderDetail, schemas_SwitchProviderDispute as SwitchProviderDispute, schemas_SwitchProviderList as SwitchProviderList, schemas_SwitchRateDeck as SwitchRateDeck, schemas_SwitchRateDeckDiff as SwitchRateDeckDiff, schemas_SwitchRatingOutcome as SwitchRatingOutcome, schemas_SwitchRouteGroup as SwitchRouteGroup, schemas_SwitchRouteTrace as SwitchRouteTrace, schemas_SwitchSbcProfile as SwitchSbcProfile, schemas_SwitchSellDeck as SwitchSellDeck, schemas_SwitchSellDeckRow as SwitchSellDeckRow, schemas_SwitchSellRate as SwitchSellRate, schemas_SwitchSessionMargin as SwitchSessionMargin, schemas_SwitchSmsEndpointTest as SwitchSmsEndpointTest, schemas_SwitchSupplierTrunk as SwitchSupplierTrunk, schemas_SwitchSupplierTrunkDetail as SwitchSupplierTrunkDetail, schemas_SwitchTeamMember as SwitchTeamMember, schemas_SwitchTrunkAddressPanel as SwitchTrunkAddressPanel, schemas_SwitchTrunkChangeRequest as SwitchTrunkChangeRequest, schemas_SwitchTrunkConfigVersion as SwitchTrunkConfigVersion, schemas_SwitchTrunkCredentialStatus as SwitchTrunkCredentialStatus, schemas_SwitchTrunkEffectiveConfig as SwitchTrunkEffectiveConfig, schemas_SwitchTrunkEffectiveSellDeck as SwitchTrunkEffectiveSellDeck, schemas_SwitchTrunkEndpoint as SwitchTrunkEndpoint, schemas_SwitchTrunkRate as SwitchTrunkRate, schemas_SwitchTrunkReadiness as SwitchTrunkReadiness, schemas_SystemHealth as SystemHealth, schemas_TaxInvoice as TaxInvoice, schemas_TaxInvoiceSummary as TaxInvoiceSummary, schemas_Topup as Topup, schemas_UsComplianceProfile as UsComplianceProfile, schemas_ValidationIssue as ValidationIssue, Verification$1 as Verification, VerifyCheckResult$1 as VerifyCheckResult, VerifyStartResult$1 as VerifyStartResult, VoiceOtpResult$1 as VoiceOtpResult, VoiceOtpStatus$1 as VoiceOtpStatus, schemas_Webhook as Webhook, schemas_WebhookDelivery as WebhookDelivery, schemas_WebhookWithSecret as WebhookWithSecret, schemas_WhitelistedIp as WhitelistedIp };
 }
 
 type RouteType = 'voice' | 'sms';
@@ -9633,7 +10026,12 @@ type RouteQualityType = 'direct' | 'premium' | 'standard' | 'ncli';
 type RouteVisibility = 'public' | 'private';
 type SmsType = 'a2p' | 'p2p' | 'both';
 type SmsSenderIdType = 'alphanumeric' | 'numeric' | 'preregistered';
-type ApiKeyScope = 'voice:send' | 'sms:send' | 'dialer:write' | 'routes:read' | 'account:read' | 'verify:write';
+/**
+ * Scopes an API key can be limited to (see the API reference for what each allows).
+ * `webhooks:write` is never implied by a full-access key: grant it explicitly to manage
+ * webhook endpoints over the API.
+ */
+type ApiKeyScope = 'voice:send' | 'sms:send' | 'dialer:write' | 'routes:read' | 'routes:write' | 'account:read' | 'account:write' | 'purchases:write' | 'offers:write' | 'billing:write' | 'numbers:read' | 'numbers:write' | 'cdr:numbers' | 'application:write' | 'switch:manage' | 'verify:write' | 'webhooks:write';
 type ApiKeyEnvironment = 'live' | 'test';
 type DialerCampaignStatus = 'draft' | 'ready' | 'running' | 'paused' | 'completed' | 'failed';
 type DialerNumberStatus = 'pending' | 'dialing' | 'answered' | 'no_answer' | 'busy' | 'failed' | 'skipped';
@@ -10025,7 +10423,22 @@ interface CallParams {
     strategy?: RoutingStrategy;
     /** Max call duration in seconds (10-3600, default 300). */
     maxDuration?: number;
+    /**
+     * Return as soon as the call is being dialled (HTTP 202, `status: 'ringing'`) instead
+     * of waiting for it to end. Prefer `comms.callAsync()`, which sets this for you.
+     */
+    async?: boolean;
+    /**
+     * What the answered call does, in order: `{ say }`, `{ play }` (an https MP3 URL),
+     * `{ gather: { digits, timeout } }`, `{ pause }` or `{ hangup: true }`. Up to 10.
+     * The call ends when the actions finish. Test keys run no actions.
+     */
+    actions?: CallAction[];
+    /** Default language for `say` actions: en, es, fr, de, pt or hi (default en). */
+    language?: 'en' | 'es' | 'fr' | 'de' | 'pt' | 'hi';
 }
+/** Final call states: once `getCall` reports one of these, the call has ended. */
+declare const FINAL_CALL_STATUSES: readonly ["completed", "no_answer", "busy", "failed"];
 /** Params for sending a single SMS (`comms.sms`). The API field is `message`. */
 interface SmsParams {
     to: string;
@@ -10059,11 +10472,20 @@ interface CallResult {
     cost: string;
     [k: string]: unknown;
 }
+/**
+ * Result of `comms.sms`. `status` is the send-time outcome; the delivery outcome comes
+ * later from `getSms` or the `sms.delivered` / `sms.failed` webhooks.
+ */
 interface SmsResult {
     messageId?: string;
     status: string;
     cost: string;
     segments?: number;
+    /**
+     * The destination network the message was priced as, when the route prices SMS per
+     * network (determined from the number's range); `null` otherwise.
+     */
+    network?: CommsSms['network'];
     [k: string]: unknown;
 }
 /** Languages a voice passcode can be spoken in (rendered by our text-to-speech provider). */
@@ -10135,10 +10557,50 @@ interface VoiceOtpStatus {
 declare class CommsResource {
     private readonly http;
     constructor(http: HttpClient);
-    /** POST /comms/calls - place a single outbound call (scope: voice:send). */
+    /**
+     * POST /comms/calls - place a single outbound call (scope: voice:send). Waits for the
+     * call to end and resolves with its outcome and cost. To return as soon as the call
+     * is dialled, use `callAsync`.
+     */
     call(params: CallParams, opts?: {
         idempotencyKey?: string;
     } & RequestOptions): Promise<CallResult>;
+    /**
+     * POST /comms/calls with `async: true` (scope: voice:send). Resolves as soon as the
+     * call is being dialled, with its `callId` (HTTP 202). Follow the call with `getCall`,
+     * `waitForCall` or the call.ringing, call.answered, call.gathered and call.completed
+     * webhooks. A call that ends before it is dialled (a test-key simulation, for
+     * example) resolves with the final `CallResult` instead.
+     *
+     * @example
+     * const call = await px.comms.callAsync({
+     *   to: '+447700900123',
+     *   from: '+14155550100',
+     *   actions: [
+     *     { say: 'Your appointment is tomorrow at 10am. Press 1 to confirm or 2 to cancel.' },
+     *     { gather: { digits: 1, timeout: 5 } },
+     *   ],
+     * });
+     */
+    callAsync(params: Omit<CallParams, 'async'>, opts?: {
+        idempotencyKey?: string;
+    } & RequestOptions): Promise<CommsCallAccepted | CallResult>;
+    /**
+     * GET /comms/calls/:id - live status, timestamps, cost, hangup reason and gathered
+     * digits for one call (scope: voice:send). Gathered digits are filled in when the
+     * call ends.
+     */
+    getCall(callId: string, opts?: RequestOptions): Promise<CommsCallStatus>;
+    /**
+     * Poll `getCall` until the call reaches a final state (see `FINAL_CALL_STATUSES`) or
+     * `timeoutMs` passes (default 10 minutes), then resolve with the last status read.
+     * Polls every `intervalMs` (default 2000, minimum 1000). For production services the
+     * call webhooks avoid polling altogether.
+     */
+    waitForCall(callId: string, options?: {
+        timeoutMs?: number;
+        intervalMs?: number;
+    }, opts?: RequestOptions): Promise<CommsCallStatus>;
     /** POST /comms/sms - send a single SMS (scope: sms:send). */
     sms(params: SmsParams, opts?: {
         idempotencyKey?: string;
@@ -10167,15 +10629,17 @@ declare class CommsResource {
     } & RequestOptions): Promise<VoiceOtpResult>;
     /** GET /comms/voice-otp/:id - outcome and cost of a voice passcode call (scope: voice:send). */
     getVoiceOtp(voiceOtpId: string, opts?: RequestOptions): Promise<VoiceOtpStatus>;
-    /** GET /comms/sms/:messageId - delivery-status lookup for one message. */
-    getSms(messageId: string, opts?: RequestOptions): Promise<{
-        messageId: string;
-        status: string;
-        dlrSupported: boolean;
-        cost?: string;
-        reference?: string;
-        sentAt?: string;
-    }>;
+    /**
+     * GET /comms/sms/:messageId - delivery status and timeline for one message.
+     *
+     * `timeline` runs queued, sent, then delivered or failed, with a timestamp per step,
+     * and `errorCode` is set on failure. `delivered` only ever comes from a carrier
+     * delivery receipt: on a route that returns none the message stays `sent` with
+     * `awaitingReceipt: true` (see `routeReturnsReceipts`). An unknown id resolves with
+     * `status: 'not_found'` rather than throwing. The `sms.delivered` and `sms.failed`
+     * webhooks report the same changes without polling.
+     */
+    getSms(messageId: string, opts?: RequestOptions): Promise<CommsSmsStatus>;
 }
 
 /** Start/pause/stop a campaign. */
@@ -10471,8 +10935,10 @@ type WebhookDeliveryDetail = WebhookDelivery & {
 /**
  * Outbound webhook management (mounted under /account/webhooks). Create and
  * rotate-secret return the signing secret ONCE. Creating, editing, deleting and
- * rotating need a dashboard session; listing, testing, reading deliveries and
- * resending work with an API key.
+ * rotating work from a dashboard session or with an API key that was created with
+ * the `webhooks:write` scope (a full-access key does not include it; choose it
+ * explicitly). Listing, testing, reading deliveries and resending work with any key
+ * that can read the account.
  */
 declare class WebhooksResource {
     private readonly http;
@@ -10694,6 +11160,44 @@ declare class VerifyResource {
     get(verificationId: string, opts?: RequestOptions): Promise<Verification>;
 }
 
+/**
+ * Number lookup: validate and format a number, and see its country, line type
+ * (mobile, fixed, toll free, premium), the network where the marketplace's rate decks
+ * agree, blocked and high-risk flags, and the cheapest live voice and SMS price to
+ * reach it. SMS prices are per destination network where the route prices that way.
+ *
+ * The answer is prefix-based: no carrier HLR query is made, so it cannot tell you
+ * whether a number is in service or has been ported. Lookups are free and limited to
+ * 60 a minute per caller.
+ */
+declare class LookupResource {
+    private readonly http;
+    constructor(http: HttpClient);
+    /**
+     * GET /lookup/:number - look up one number. Send it in international format
+     * (`+447700900123`; spaces and dashes are ignored). A malformed number resolves with
+     * `valid: false` and a `reason` rather than throwing.
+     */
+    number(number: string, opts?: RequestOptions): Promise<NumberLookup>;
+}
+
+/**
+ * Phone numbers you bought. The rest of the number API (`/dids/*`) is in the API
+ * reference and callable through `px.http.request`.
+ */
+declare class NumbersResource {
+    private readonly http;
+    constructor(http: HttpClient);
+    /** GET /dids/:id/ai-agent - the AI voice agent assigned to a number (scope: numbers:read). */
+    getAiAgent(numberId: string, opts?: RequestOptions): Promise<DidAiAgent>;
+    /**
+     * PUT /dids/:id/ai-agent - assign one of your AI voice agents to a number, or pass
+     * `null` to return the number to its call flow (scope: numbers:write). `live` in the
+     * response says whether inbound AI answering is currently enabled on the platform.
+     */
+    setAiAgent(numberId: string, agentId: string | null, opts?: RequestOptions): Promise<DidAiAgent>;
+}
+
 /** Notifications: list and mark read. */
 declare class NotificationsResource {
     private readonly http;
@@ -10777,6 +11281,10 @@ declare class PacketExchange {
     readonly interconnections: InterconnectionsResource;
     /** Verify API: send a one-time code by SMS or voice and check it. */
     readonly verify: VerifyResource;
+    /** Number lookup: country, line type, network, risk flags and cheapest price (free, prefix-based). */
+    readonly lookup: LookupResource;
+    /** Phone numbers you bought. */
+    readonly numbers: NumbersResource;
     readonly notifications: NotificationsResource;
     readonly dnc: DncResource;
     readonly favorites: FavoritesResource;
@@ -10880,4 +11388,4 @@ interface VerifyWebhookSignatureResult {
  */
 declare function verifyWebhookSignature(p: VerifyWebhookSignatureParams): Promise<VerifyWebhookSignatureResult>;
 
-export { AccountResource, type ApiKey, type ApiKeyCreateResult, type ApiUsage, BillingResource, type CallParams, type CallResult, type CdrFilters, CliTestsResource, type CommsHistoryFilters, CommsResource, DEFAULT_BASE_URL, type DialerAction, type DialerCampaign, type DialerCli, type DialerNumber, DialerResource, DncResource, type Envelope, type ErrorEnvelope, FavoritesResource, type HeaderSource, HttpClient, type InterconnectionTestType, InterconnectionsResource, type Money, NotificationsResource, type OfferRole, OffersResource, type OperationId, type Operations, PacketExchange, PacketExchangeError, type PacketExchangeOptions, type Page, type PriceNumberResult, type PricedRoute, type Purchase, type PurchaseFilters, type PurchaseUpcomingRateChanges, type PurchaseWithRoute, PurchasesResource, type RequestOptions, type ResolveParams, type ResolvedRoute, type Route, type RouteCreateInput, type RouteFilterInput, type RouteForCandidate, type RouteForResult, type RouteTestBatch, type RouteTestBatchInput, type RouteTestItem, type RouteTestPreview, type RouteUpdateInput, RoutesResource, type RoutingOrderEntry, type RoutingOrderResult, type RoutingStrategy, SavedSearchesResource, type ScheduledChangeAcceptance, schemas as Schemas, type SmsBulkParams, type SmsParams, type SmsResult, type TestConnectionParams, type TransactionFilters, type User, type ValidationIssue, type Verification, type VerifyChannel, type VerifyCheckParams, type VerifyCheckResult, type VerifyLanguage, VerifyResource, type VerifyStartParams, type VerifyStartResult, type VerifyWebhookSignatureParams, type VerifyWebhookSignatureResult, type VoiceOtpLanguage, type VoiceOtpParams, type VoiceOtpResult, type VoiceOtpStatus, type Webhook, type WebhookCreateInput, type WebhookDelivery, type WebhookDeliveryDetail, type WebhookDeliveryFilters, type WebhookDeliveryStatus, type WebhookEvent, type WebhookUpdateInput, type WebhookWithSecret, WebhooksResource, verifyWebhookSignature };
+export { AccountResource, type ApiKey, type ApiKeyCreateResult, type ApiUsage, BillingResource, type CallAction, type CallParams, type CallResult, type CdrFilters, CliTestsResource, type CommsCallAccepted, type CommsCallStatus, type CommsHistoryFilters, CommsResource, type CommsSmsStatus, DEFAULT_BASE_URL, type DialerAction, type DialerCampaign, type DialerCli, type DialerNumber, DialerResource, type DidAiAgent, DncResource, type Envelope, type ErrorEnvelope, FINAL_CALL_STATUSES, FavoritesResource, type HeaderSource, HttpClient, type InterconnectionTestType, InterconnectionsResource, LookupResource, type Money, NotificationsResource, type NumberLookup, NumbersResource, type OfferRole, OffersResource, type OperationId, type Operations, PacketExchange, PacketExchangeError, type PacketExchangeOptions, type Page, type PriceNumberResult, type PricedRoute, type Purchase, type PurchaseFilters, type PurchaseUpcomingRateChanges, type PurchaseWithRoute, PurchasesResource, type RequestOptions, type ResolveParams, type ResolvedRoute, type Route, type RouteCreateInput, type RouteFilterInput, type RouteForCandidate, type RouteForResult, type RouteTestBatch, type RouteTestBatchInput, type RouteTestItem, type RouteTestPreview, type RouteUpdateInput, RoutesResource, type RoutingOrderEntry, type RoutingOrderResult, type RoutingStrategy, SavedSearchesResource, type ScheduledChangeAcceptance, schemas as Schemas, type SmsBulkParams, type SmsParams, type SmsResult, type SmsTimelineStep, type TestConnectionParams, type TransactionFilters, type User, type ValidationIssue, type Verification, type VerifyChannel, type VerifyCheckParams, type VerifyCheckResult, type VerifyLanguage, VerifyResource, type VerifyStartParams, type VerifyStartResult, type VerifyWebhookSignatureParams, type VerifyWebhookSignatureResult, type VoiceOtpLanguage, type VoiceOtpParams, type VoiceOtpResult, type VoiceOtpStatus, type Webhook, type WebhookCreateInput, type WebhookDelivery, type WebhookDeliveryDetail, type WebhookDeliveryFilters, type WebhookDeliveryStatus, type WebhookEvent, type WebhookUpdateInput, type WebhookWithSecret, WebhooksResource, verifyWebhookSignature };

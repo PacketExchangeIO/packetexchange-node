@@ -1,5 +1,14 @@
 import type { HttpClient, Page, RequestOptions } from '../http.js';
 import type { RoutingStrategy } from './routes.js';
+import type {
+  CallAction,
+  CommsCallAccepted,
+  CommsCallStatus,
+  CommsSms,
+  CommsSmsStatus,
+} from '../generated/schemas.js';
+
+export type { CallAction, CommsCallAccepted, CommsCallStatus, CommsSmsStatus };
 
 /** Params for placing a single outbound call (`comms.call`). */
 export interface CallParams {
@@ -10,7 +19,23 @@ export interface CallParams {
   strategy?: RoutingStrategy;
   /** Max call duration in seconds (10-3600, default 300). */
   maxDuration?: number;
+  /**
+   * Return as soon as the call is being dialled (HTTP 202, `status: 'ringing'`) instead
+   * of waiting for it to end. Prefer `comms.callAsync()`, which sets this for you.
+   */
+  async?: boolean;
+  /**
+   * What the answered call does, in order: `{ say }`, `{ play }` (an https MP3 URL),
+   * `{ gather: { digits, timeout } }`, `{ pause }` or `{ hangup: true }`. Up to 10.
+   * The call ends when the actions finish. Test keys run no actions.
+   */
+  actions?: CallAction[];
+  /** Default language for `say` actions: en, es, fr, de, pt or hi (default en). */
+  language?: 'en' | 'es' | 'fr' | 'de' | 'pt' | 'hi';
 }
+
+/** Final call states: once `getCall` reports one of these, the call has ended. */
+export const FINAL_CALL_STATUSES = ['completed', 'no_answer', 'busy', 'failed'] as const;
 
 /** Params for sending a single SMS (`comms.sms`). The API field is `message`. */
 export interface SmsParams {
@@ -46,11 +71,20 @@ export interface CallResult {
   [k: string]: unknown;
 }
 
+/**
+ * Result of `comms.sms`. `status` is the send-time outcome; the delivery outcome comes
+ * later from `getSms` or the `sms.delivered` / `sms.failed` webhooks.
+ */
 export interface SmsResult {
   messageId?: string;
   status: string;
   cost: string;
   segments?: number;
+  /**
+   * The destination network the message was priced as, when the route prices SMS per
+   * network (determined from the number's range); `null` otherwise.
+   */
+  network?: CommsSms['network'];
   [k: string]: unknown;
 }
 
@@ -127,13 +161,75 @@ export interface VoiceOtpStatus {
 export class CommsResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** POST /comms/calls - place a single outbound call (scope: voice:send). */
+  /**
+   * POST /comms/calls - place a single outbound call (scope: voice:send). Waits for the
+   * call to end and resolves with its outcome and cost. To return as soon as the call
+   * is dialled, use `callAsync`.
+   */
   call(params: CallParams, opts?: { idempotencyKey?: string } & RequestOptions): Promise<CallResult> {
     return this.http.request<CallResult>('POST', '/comms/calls', {
       ...opts,
       body: params,
       idempotencyKey: opts?.idempotencyKey,
     });
+  }
+
+  /**
+   * POST /comms/calls with `async: true` (scope: voice:send). Resolves as soon as the
+   * call is being dialled, with its `callId` (HTTP 202). Follow the call with `getCall`,
+   * `waitForCall` or the call.ringing, call.answered, call.gathered and call.completed
+   * webhooks. A call that ends before it is dialled (a test-key simulation, for
+   * example) resolves with the final `CallResult` instead.
+   *
+   * @example
+   * const call = await px.comms.callAsync({
+   *   to: '+447700900123',
+   *   from: '+14155550100',
+   *   actions: [
+   *     { say: 'Your appointment is tomorrow at 10am. Press 1 to confirm or 2 to cancel.' },
+   *     { gather: { digits: 1, timeout: 5 } },
+   *   ],
+   * });
+   */
+  callAsync(
+    params: Omit<CallParams, 'async'>,
+    opts?: { idempotencyKey?: string } & RequestOptions,
+  ): Promise<CommsCallAccepted | CallResult> {
+    return this.http.request<CommsCallAccepted | CallResult>('POST', '/comms/calls', {
+      ...opts,
+      body: { ...params, async: true },
+      idempotencyKey: opts?.idempotencyKey,
+    });
+  }
+
+  /**
+   * GET /comms/calls/:id - live status, timestamps, cost, hangup reason and gathered
+   * digits for one call (scope: voice:send). Gathered digits are filled in when the
+   * call ends.
+   */
+  getCall(callId: string, opts?: RequestOptions): Promise<CommsCallStatus> {
+    return this.http.request<CommsCallStatus>('GET', `/comms/calls/${encodeURIComponent(callId)}`, opts);
+  }
+
+  /**
+   * Poll `getCall` until the call reaches a final state (see `FINAL_CALL_STATUSES`) or
+   * `timeoutMs` passes (default 10 minutes), then resolve with the last status read.
+   * Polls every `intervalMs` (default 2000, minimum 1000). For production services the
+   * call webhooks avoid polling altogether.
+   */
+  async waitForCall(
+    callId: string,
+    options: { timeoutMs?: number; intervalMs?: number } = {},
+    opts?: RequestOptions,
+  ): Promise<CommsCallStatus> {
+    const deadline = Date.now() + (options.timeoutMs ?? 10 * 60_000);
+    const interval = Math.max(1000, options.intervalMs ?? 2000);
+    for (;;) {
+      const status = await this.getCall(callId, opts);
+      const done = (FINAL_CALL_STATUSES as readonly string[]).includes(status.status);
+      if (done || Date.now() + interval > deadline) return status;
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
   }
 
   /** POST /comms/sms - send a single SMS (scope: sms:send). */
@@ -196,15 +292,17 @@ export class CommsResource {
     return this.http.request<VoiceOtpStatus>('GET', `/comms/voice-otp/${encodeURIComponent(voiceOtpId)}`, opts);
   }
 
-  /** GET /comms/sms/:messageId - delivery-status lookup for one message. */
-  getSms(messageId: string, opts?: RequestOptions) {
-    return this.http.request<{
-      messageId: string;
-      status: string;
-      dlrSupported: boolean;
-      cost?: string;
-      reference?: string;
-      sentAt?: string;
-    }>('GET', `/comms/sms/${encodeURIComponent(messageId)}`, opts);
+  /**
+   * GET /comms/sms/:messageId - delivery status and timeline for one message.
+   *
+   * `timeline` runs queued, sent, then delivered or failed, with a timestamp per step,
+   * and `errorCode` is set on failure. `delivered` only ever comes from a carrier
+   * delivery receipt: on a route that returns none the message stays `sent` with
+   * `awaitingReceipt: true` (see `routeReturnsReceipts`). An unknown id resolves with
+   * `status: 'not_found'` rather than throwing. The `sms.delivered` and `sms.failed`
+   * webhooks report the same changes without polling.
+   */
+  getSms(messageId: string, opts?: RequestOptions): Promise<CommsSmsStatus> {
+    return this.http.request<CommsSmsStatus>('GET', `/comms/sms/${encodeURIComponent(messageId)}`, opts);
   }
 }

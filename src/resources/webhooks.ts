@@ -43,8 +43,10 @@ export type WebhookDeliveryDetail = WebhookDelivery & { payload: Record<string, 
 /**
  * Outbound webhook management (mounted under /account/webhooks). Create and
  * rotate-secret return the signing secret ONCE. Creating, editing, deleting and
- * rotating need a dashboard session; listing, testing, reading deliveries and
- * resending work with an API key.
+ * rotating work from a dashboard session or with an API key that was created with
+ * the `webhooks:write` scope (a full-access key does not include it; choose it
+ * explicitly). Listing, testing, reading deliveries and resending work with any key
+ * that can read the account.
  */
 export class WebhooksResource {
   constructor(private readonly http: HttpClient) {}

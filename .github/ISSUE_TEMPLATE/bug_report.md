@@ -25,7 +25,7 @@ the `X-Request-Id` (request ID) so we can trace it.
 
 **Environment**
 
-- @packetexchange/sdk version:
+- packetexchange version:
 - Node.js version:
 - Operating system:
 

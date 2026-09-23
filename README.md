@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/PacketExchangeIO/packetexchange-node/actions/workflows/ci.yml"><img src="https://github.com/PacketExchangeIO/packetexchange-node/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/github/package-json/v/PacketExchangeIO/packetexchange-node" alt="Version"></a>
+  <a href="https://www.npmjs.com/package/packetexchange"><img src="https://img.shields.io/npm/v/packetexchange.svg" alt="npm version"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg" alt="Node >= 18">
 </p>
 
@@ -24,16 +24,11 @@ dashboard under **API keys**.
 
 ## Installation
 
-The SDK is installed from GitHub:
-
 ```bash
-npm install github:PacketExchangeIO/packetexchange-node
+npm install packetexchange
 ```
 
-Pin a release tag or commit for reproducible installs, for example
-`npm install github:PacketExchangeIO/packetexchange-node#v0.3.1`. The package installs as
-`@packetexchange/sdk` and ships prebuilt ESM, CommonJS and type declarations, so no build
-step runs on install.
+The package ships ESM, CommonJS and type declarations, and has no runtime dependencies.
 
 ## Quick start
 
@@ -44,7 +39,7 @@ export PACKETEXCHANGE_API_KEY=your_api_key
 ```
 
 ```ts
-import { PacketExchange, PacketExchangeError } from '@packetexchange/sdk';
+import { PacketExchange, PacketExchangeError } from 'packetexchange';
 
 const px = new PacketExchange({ apiKey: process.env.PACKETEXCHANGE_API_KEY });
 
@@ -77,8 +72,83 @@ try {
 }
 ```
 
-SMS status is the send-time outcome (for example `accepted` or `failed`), not a handset
-delivery receipt. Look a message up later with `px.comms.getSms(messageId)`.
+The `status` returned by `comms.sms` is the send-time outcome (for example `sent` or
+`failed`). The delivery outcome follows later; see [SMS delivery status](#sms-delivery-status).
+
+## Number lookup
+
+Check a number before you message or call it: validity and formatting, country, line
+type, the network where the marketplace's rate decks agree, blocked and high-risk flags,
+and the cheapest live voice and SMS price to reach it.
+
+```ts
+const info = await px.lookup.number('+447700900123');
+if (!info.valid) {
+  console.log('Invalid number:', info.reason);
+} else {
+  console.log(info.e164, info.country?.name, info.numberType, info.network?.operator);
+  console.log('Voice from', info.pricing.voice?.rate, 'USD/min');
+  console.log('SMS from', info.pricing.sms?.rate, 'USD/msg');
+}
+```
+
+Lookups are free and limited to 60 a minute. The answer is prefix-based: no carrier HLR
+query is made, so it cannot tell you whether a number is in service or has been ported.
+Where a route prices SMS per destination network, `pricing.sms.network` names the
+network the price is for and `pricing.sms.countryRate` is the price for other networks.
+
+## Calls with actions
+
+`comms.callAsync` returns as soon as the call is being dialled, with a `callId`. Actions
+run in order once the call is answered: `say` (text to speech in `en`, `es`, `fr`, `de`,
+`pt` or `hi`), `play` (an https URL of an MP3), `gather` (collect keypad digits), `pause`
+and `hangup`.
+
+```ts
+const call = await px.comms.callAsync({
+  to: '+447700900123',
+  from: '+14155550100',
+  language: 'en',
+  actions: [
+    { say: 'This is Acme Dental. Your appointment is tomorrow at 10am.' },
+    { gather: { digits: 1, timeout: 5, say: 'Press 1 to confirm or 2 to cancel.' } },
+    { say: 'Thank you. Goodbye.' },
+  ],
+});
+
+if ('callId' in call && call.callId) {
+  const done = await px.comms.waitForCall(call.callId);
+  console.log(done.status, done.hangupReason, done.cost);
+  console.log('Pressed:', done.gathered?.[0]?.digits ?? 'nothing');
+}
+```
+
+`comms.getCall(callId)` returns the live state (`queued`, `ringing`, `answered`) or the
+final one (`completed`, `no_answer`, `busy`, `failed`). Gathered digits are filled in when
+the call ends. For a service, subscribe to the `call.ringing`, `call.answered`,
+`call.gathered` and `call.completed` webhooks instead of polling. `comms.call` places the
+same call but waits for it to end before it returns. Test keys simulate the call and run
+no actions.
+
+## SMS delivery status
+
+`comms.getSms(messageId)` returns the message's current status and its timeline, each step
+with a timestamp: `queued`, `sent`, then `delivered` or `failed`.
+
+```ts
+const sms = await px.comms.sms({ to: '+447700900123', from: 'Acme', body: 'Your code is 482913' });
+
+const state = await px.comms.getSms(sms.messageId!);
+for (const step of state.timeline ?? []) console.log(step.at, step.status, step.source);
+if (state.status === 'failed') console.log('Failed:', state.errorCode);
+if (state.awaitingReceipt) console.log('Sent, no carrier receipt yet');
+```
+
+A message is reported `delivered` only when a carrier delivery receipt confirms it. Not
+every route returns receipts: on one that does not, the message stays `sent` with
+`awaitingReceipt: true`, and `routeReturnsReceipts` tells you which case applies. A message
+that fails on its receipt is refunded. Subscribe to the `sms.delivered` and `sms.failed`
+webhooks to be told without polling.
 
 ## Verification codes
 
@@ -127,12 +197,15 @@ API keys are environment-scoped:
 - `wmmn_test_sk_...` simulates calls, SMS and dialer runs instead of sending them, and
   charges only the account's test credit. Responses from a test key carry
   `simulated: true`, and `verify.start` returns `testCode` so you can complete a
-  verification flow end to end.
+  verification flow end to end. Actions that have no test mode, such as Switch changes
+  and x402 top-ups, fail with status 403 and code `TEST_KEY_NOT_ALLOWED`.
 
 Keys can be limited to scopes such as `voice:send`, `sms:send`, `verify:write` and
 `routes:read`. A call that needs a scope the key lacks fails with status 403 and a message
-naming the missing scope. A few account-management endpoints (API keys, payouts, creating or
-editing webhooks) accept only a dashboard session, never an API key.
+naming the missing scope. Managing webhook endpoints needs the `webhooks:write` scope,
+which a full-access key does not include: create a key with it explicitly. A few
+account-management endpoints (API keys, payouts) accept only a dashboard session, never an
+API key.
 
 ## Error handling
 
@@ -184,7 +257,7 @@ re-serialising the JSON changes the bytes and breaks the signature.
 
 ```ts
 import express from 'express';
-import { verifyWebhookSignature } from '@packetexchange/sdk';
+import { verifyWebhookSignature } from 'packetexchange';
 
 const app = express();
 
@@ -218,9 +291,17 @@ stripped. Pass `allowLegacy: false` to refuse the legacy scheme entirely. The re
 than throws for a bad signature. The helper uses WebCrypto (`globalThis.crypto.subtle`),
 which is available by default on Node.js 20 and later, Bun, Deno and browsers.
 
-Manage endpoints and inspect or resend deliveries with the `webhooks` resource:
+Manage endpoints and inspect or resend deliveries with the `webhooks` resource. Creating,
+editing, deleting and rotating the secret of an endpoint need a key with the
+`webhooks:write` scope:
 
 ```ts
+const hook = await px.webhooks.create({
+  url: 'https://example.com/webhooks/packetexchange',
+  events: ['sms.delivered', 'sms.failed', 'call.completed'],
+});
+console.log(hook.secret); // returned once: store it for signature checks
+
 const failed = await px.webhooks.listAllDeliveries({ status: 'failed', limit: 50 });
 for (const d of failed.data) console.log(d.event, d.httpStatus, d.lastError);
 ```
@@ -232,7 +313,8 @@ for (const d of failed.data) console.log(d.event, d.httpStatus, d.lastError);
 | `routes` | Marketplace listing and search, Smart Routing preview, number pricing, your listed routes |
 | `purchases` | Buying routes, usage, pause and resume, routing order, rate changes |
 | `offers` | Price negotiation on routes |
-| `comms` | Single calls and SMS, voice passcode calls, call and SMS history |
+| `comms` | Single calls (with actions, sync or async), SMS and delivery status, voice passcode calls, call and SMS history |
+| `lookup` | Number lookup: type, network, risk flags and cheapest price |
 | `verify` | One-time code verification by SMS or voice |
 | `dialer` | Dialer campaigns, numbers and caller IDs |
 | `billing` | Summary, ledger, balance history, CDRs and CSV export |
@@ -257,7 +339,7 @@ Types for every schema in the OpenAPI document are exported under the `Schemas` 
 and `Operations` maps each operation ID to its method and path:
 
 ```ts
-import type { Schemas, OperationId } from '@packetexchange/sdk';
+import type { Schemas, OperationId } from 'packetexchange';
 
 type Delivery = Schemas.WebhookDelivery;
 ```
@@ -281,7 +363,7 @@ npm test
 ```
 
 The tests run against the built `dist/` output with a mocked `fetch`; they never call the
-live API. `dist/` is committed so that installing from GitHub needs no build step. Rebuild
+live API. `dist/` is committed so that installing straight from GitHub needs no build step. Rebuild
 and commit it with every source change; CI fails if it is out of date.
 
 ## Versioning
