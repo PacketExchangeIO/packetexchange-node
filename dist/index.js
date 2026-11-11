@@ -102,6 +102,14 @@ var HttpClient = class {
     return res;
   }
   /**
+   * Perform a request for a binary file (e.g. an Excel workbook) and return its bytes.
+   * Throws a `PacketExchangeError` on a non-2xx status, like `requestRaw`.
+   */
+  async requestBytes(method, path, opts = {}) {
+    const res = await this.requestRaw(method, path, opts);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+  /**
    * Like `request`, but returns the FULL envelope - used by paginated list
    * helpers that need `nextCursor`/`hasMore`/`total` alongside `data`.
    */
@@ -261,6 +269,40 @@ var RoutesResource = class {
   delete(id, opts) {
     return this.http.request("DELETE", `/routes/${encodeURIComponent(id)}`, opts);
   }
+  /**
+   * Route checks: one short real call (or one test SMS) over a route before you buy it.
+   * Each connected leg is charged at the route's rate, test credit first; a test key
+   * returns a simulated result with no call and no charge. Pass `idempotencyKey` to make
+   * a retried `create`, `sendSms` or `purchase` safe.
+   */
+  checks = {
+    /** POST /routes/check - check 1 to 3 routes. Returns a `checkId` at once; poll `get`. */
+    create: (input, opts) => this.http.request("POST", "/routes/check", { ...opts, body: input }),
+    /** GET /routes/check/:id - per-route verdicts, in your order. Poll until `status` is `done`. */
+    get: (id, opts) => this.http.request("GET", `/routes/check/${encodeURIComponent(id)}`, opts),
+    /** GET /routes/checks - your recent route checks (limit 1-50, default 20). */
+    list: (params = {}, opts) => this.http.request("GET", "/routes/checks", { ...opts, query: { ...params, ...opts?.query } }),
+    /**
+     * GET /routes/check/coverage - whether each route (1 to 3) has a public test line. Where
+     * one has none, check it with `mode: 'ring_me'` and your own number.
+     */
+    coverage: (params, opts) => this.http.request("GET", "/routes/check/coverage", {
+      ...opts,
+      // The API takes the ids as one comma-separated value, not a repeated parameter.
+      query: { routeIds: params.routeIds.join(","), number: params.number, ...opts?.query }
+    }),
+    /**
+     * POST /routes/check/sms - send one fixed test message over an SMS route to your own
+     * mobile (E.164, covered by the route). Returns a `checkId`; poll `get`.
+     */
+    sendSms: (input, opts) => this.http.request("POST", "/routes/check/sms", { ...opts, body: input }),
+    /**
+     * POST /routes/check/:id/purchase - buy every route that passed, in your order, and put
+     * them at the top of your routing order. A route that cannot be bought is reported in
+     * `purchases[].error`. Needs a live key.
+     */
+    purchase: (id, opts) => this.http.request("POST", `/routes/check/${encodeURIComponent(id)}/purchase`, opts)
+  };
 };
 
 // src/resources/comms.ts
@@ -556,6 +598,46 @@ var PurchasesResource = class {
       { ...opts, body: input }
     );
   }
+  /**
+   * GET /purchases/lcr - every route that can carry a call to `to` from your account, in
+   * the order a call tries them, with your rate, latest test and last-24-hour calls for
+   * each, plus `warnings` and any `refused` reason. Limited to 60 requests a minute.
+   */
+  lcr(to, opts) {
+    return this.http.request("GET", "/purchases/lcr", { ...opts, query: { to, ...opts?.query } });
+  }
+  /**
+   * PUT /purchases/lcr-order - reorder the lines `lcr` showed for one number. Other routes
+   * and destinations keep their place. Voice routes only; needs a live key.
+   */
+  setLcrOrder(order, opts) {
+    return this.http.request(
+      "PUT",
+      "/purchases/lcr-order",
+      { ...opts, body: { order } }
+    );
+  }
+  /**
+   * GET /purchases/failover - for each destination, the route tried first and the backups
+   * behind it, plus your automatic failover settings. Read-only.
+   */
+  failover(opts) {
+    return this.http.request("GET", "/purchases/failover", opts);
+  }
+  /** PUT /purchases/failover/price-limit - how much more a backup may cost (`off` disables failover). Needs a live key. */
+  setFailoverPriceLimit(priceLimit, opts) {
+    return this.http.request("PUT", "/purchases/failover/price-limit", {
+      ...opts,
+      body: { priceLimit }
+    });
+  }
+  /**
+   * GET /purchases/owned/:routeId - your active purchase of a route, or one awaiting
+   * review, so you can avoid buying it twice. `null` when you hold neither.
+   */
+  owned(routeId, opts) {
+    return this.http.request("GET", `/purchases/owned/${encodeURIComponent(routeId)}`, opts);
+  }
   /** DELETE /purchases/:id - cancel a purchase. */
   cancel(id, opts) {
     return this.http.request("DELETE", `/purchases/${encodeURIComponent(id)}`, opts);
@@ -638,6 +720,37 @@ var BillingResource = class {
   async exportCdrs(range = {}, opts) {
     return this.http.requestRaw("GET", "/billing/cdrs/export", { ...opts, query: { ...range, ...opts?.query } });
   }
+  /** GET /billing/cdrs/failure-summary - top reasons your calls failed over the last `days` (1-31, default 7). */
+  failureSummary(params = {}, opts) {
+    return this.http.request("GET", "/billing/cdrs/failure-summary", {
+      ...opts,
+      query: { ...params, ...opts?.query }
+    });
+  }
+  /** GET /billing/earnings - seller earnings per UTC day over the last `window` days (1-90, default 30). */
+  earnings(params = {}, opts) {
+    return this.http.request("GET", "/billing/earnings", { ...opts, query: { ...params, ...opts?.query } });
+  }
+  /** GET /billing/hold-schedule - when held money becomes withdrawable, with balance, held and withdrawable totals. */
+  holdSchedule(opts) {
+    return this.http.request("GET", "/billing/hold-schedule", opts);
+  }
+  /**
+   * GET /price-list.xlsx - today's A-Z marketplace price list as Excel workbook bytes.
+   * Downloads per account are limited per 24 hours (see `priceListInfo`); the API answers
+   * 404 while the list is still being prepared.
+   */
+  priceList(opts) {
+    return this.http.requestBytes("GET", "/price-list.xlsx", opts);
+  }
+  /** GET /price-list/me.xlsx - the same workbook with your private prices and accepted offers applied. */
+  myPriceList(opts) {
+    return this.http.requestBytes("GET", "/price-list/me.xlsx", opts);
+  }
+  /** GET /price-list/meta - details of the current price list, or `null` before one has been built. */
+  priceListInfo(opts) {
+    return this.http.request("GET", "/price-list/meta", opts);
+  }
 };
 
 // src/resources/account.ts
@@ -691,14 +804,17 @@ var AccountResource = class {
     /** PUT /account/alerts - upsert thresholds (null clears one). */
     set: (input, opts) => this.http.request("PUT", "/account/alerts", { ...opts, body: input })
   };
-  /** Login sessions (mounted under /auth on the wire). */
-  sessions = {
-    /** GET /auth/sessions - active sessions for the caller. */
-    list: (opts) => this.http.request("GET", "/auth/sessions", opts),
-    /** DELETE /auth/sessions/:id - revoke one session. */
-    revoke: (id, opts) => this.http.request("DELETE", `/auth/sessions/${encodeURIComponent(id)}`, opts),
-    /** POST /auth/sessions/revoke-others - revoke all sessions but the current. */
-    revokeOthers: (opts) => this.http.request("POST", "/auth/sessions/revoke-others", opts)
+  /**
+   * Destinations you follow: you hear about new listings, lower prices and routes reaching
+   * International CLI for each one, in-app and in one daily email.
+   */
+  destinationAlerts = {
+    /** GET /account/destination-alerts - the destinations you follow. */
+    list: (opts) => this.http.request("GET", "/account/destination-alerts", opts),
+    /** POST /account/destination-alerts - follow one country for voice or SMS (idempotent). */
+    create: (input, opts) => this.http.request("POST", "/account/destination-alerts", { ...opts, body: input }),
+    /** DELETE /account/destination-alerts/:id - stop following a destination. */
+    delete: (id, opts) => this.http.request("DELETE", `/account/destination-alerts/${encodeURIComponent(id)}`, opts)
   };
 };
 
@@ -809,6 +925,25 @@ var CliTestsResource = class {
   quota(opts) {
     return this.http.request("GET", "/cli-tests/quota", opts);
   }
+  /**
+   * GET /cli-tests/quote - what one caller-ID test on a route would cost now, which funds
+   * pay for it and whether it can run. A route that cannot be tested is not an error:
+   * `canRun` is false and `reason` says why.
+   */
+  quote(routeId, opts) {
+    return this.http.request("GET", "/cli-tests/quote", { ...opts, query: { routeId, ...opts?.query } });
+  }
+  /**
+   * GET /cli-tests/routes/:routeId/test-countries - the countries a test on this route can
+   * call. Pass the chosen name as `testCountry` when creating the test.
+   */
+  testCountries(routeId, opts) {
+    return this.http.request(
+      "GET",
+      `/cli-tests/routes/${encodeURIComponent(routeId)}/test-countries`,
+      opts
+    );
+  }
   // ── Route liveness tests ("test these N routes") ───────────────────────────
   // One real test call per route to a handset in its country. Each route is charged
   // the test price ONLY if it rang; routes that do not ring cost nothing.
@@ -880,12 +1015,6 @@ var VerifyResource = class {
     this.http = http;
   }
   http;
-  /**
-   * POST /verify/start - create a verification and send the code.
-   * Rate limited: at most 5 starts per number per hour, a 30 second resend cooldown and
-   * a daily cap per account (a `PacketExchangeError` with status 429 and code
-   * `RATE_LIMITED`; `details.retryAfterSeconds` says when to retry).
-   */
   start(params, opts) {
     return this.http.request("POST", "/verify/start", {
       ...opts,
@@ -899,8 +1028,53 @@ var VerifyResource = class {
   }
   /** GET /verify/:id - current state of a verification (never includes the code). */
   get(verificationId, opts) {
-    return this.http.request("GET", `/verify/${encodeURIComponent(verificationId)}`, opts);
+    return this.http.request(
+      "GET",
+      `/verify/${encodeURIComponent(verificationId)}`,
+      opts
+    );
   }
+  /**
+   * GET /verify - recent verifications, newest first. Test keys see only test
+   * verifications, live keys only live ones.
+   */
+  list(filters = {}, opts) {
+    return this.http.request("GET", "/verify", {
+      ...opts,
+      query: { ...filters, ...opts?.query }
+    });
+  }
+  /**
+   * POST /verify/:id/simulate-call - test keys only: approve a pending call-in
+   * verification as if the user had called, and send the `verification.approved` webhook
+   * with `simulated: true`. Nothing is charged.
+   */
+  simulateCall(verificationId, opts) {
+    return this.http.request(
+      "POST",
+      `/verify/${encodeURIComponent(verificationId)}/simulate-call`,
+      opts
+    );
+  }
+  /**
+   * Call-in numbers: your own phone numbers that answer call-in verifications. While
+   * call-in is on for a number, every call to it is treated as a verification attempt and
+   * ended without being answered, so any ringing set up on it stops.
+   */
+  callIn = {
+    /** GET /verify/call-in/coverage - the call-in numbers you can use, the dial code each verifies, and the price. */
+    coverage: (opts) => this.http.request("GET", "/verify/call-in/coverage", opts),
+    /** GET /verify/call-in/numbers - every phone number on your account and its call-in setting. */
+    listNumbers: (opts) => this.http.request("GET", "/verify/call-in/numbers", opts),
+    /** POST /verify/call-in/numbers - switch call-in on for an active number you hold. Needs a live key. */
+    addNumber: (phoneNumberId, opts) => this.http.request("POST", "/verify/call-in/numbers", { ...opts, body: { phoneNumberId } }),
+    /** DELETE /verify/call-in/numbers/:phoneNumberId - switch call-in off; calls ring as set up again. Needs a live key. */
+    removeNumber: (phoneNumberId, opts) => this.http.request(
+      "DELETE",
+      `/verify/call-in/numbers/${encodeURIComponent(phoneNumberId)}`,
+      opts
+    )
+  };
 };
 
 // src/resources/lookup.ts
@@ -940,6 +1114,31 @@ var NumbersResource = class {
       body: { agentId }
     });
   }
+  /**
+   * GET /dids/:id/call-capacity - the channels included with the number, its current
+   * setting, the most you may choose and the per-minute price of calls beyond the
+   * included channels (scope: numbers:read).
+   */
+  callCapacity(numberId, opts) {
+    return this.http.request(
+      "GET",
+      `/dids/${encodeURIComponent(numberId)}/call-capacity`,
+      opts
+    );
+  }
+  /**
+   * PUT /dids/:id/call-capacity - set how many calls the number takes at once, from the
+   * included channels up to `offer.limit`. Takes effect at once; each minute of a call
+   * beyond the included channels is billed at `perMinuteUsd` (scope: numbers:write, live
+   * key).
+   */
+  setCallCapacity(numberId, maxCalls, opts) {
+    return this.http.request(
+      "PUT",
+      `/dids/${encodeURIComponent(numberId)}/call-capacity`,
+      { ...opts, body: { maxCalls } }
+    );
+  }
 };
 
 // src/resources/misc.ts
@@ -962,6 +1161,20 @@ var NotificationsResource = class {
   /** POST /notifications/read-all - mark all notifications read. */
   markAllRead(opts) {
     return this.http.request("POST", "/notifications/read-all", opts);
+  }
+  /**
+   * GET /notifications/preferences - whether unread critical notifications are emailed to
+   * you as a digest (on by default). Not available to scoped keys.
+   */
+  preferences(opts) {
+    return this.http.request("GET", "/notifications/preferences", opts);
+  }
+  /**
+   * PUT /notifications/preferences - turn the digest email (at most one every 4 hours) on
+   * or off. Security and account emails are not affected. Needs a live, full-access key.
+   */
+  setPreferences(input, opts) {
+    return this.http.request("PUT", "/notifications/preferences", { ...opts, body: input });
   }
 };
 var DncResource = class {
@@ -1048,7 +1261,7 @@ var PacketExchange = class {
   webhooks;
   cliTests;
   interconnections;
-  /** Verify API: send a one-time code by SMS or voice and check it. */
+  /** Verify API: send a one-time code by SMS or voice and check it, or verify by call-in. */
   verify;
   /** Number lookup: country, line type, network, risk flags and cheapest price (free, prefix-based). */
   lookup;

@@ -45,7 +45,7 @@ export class PacketExchange {
   readonly webhooks: WebhooksResource;
   readonly cliTests: CliTestsResource;
   readonly interconnections: InterconnectionsResource;
-  /** Verify API: send a one-time code by SMS or voice and check it. */
+  /** Verify API: send a one-time code by SMS or voice and check it, or verify by call-in. */
   readonly verify: VerifyResource;
   /** Number lookup: country, line type, network, risk flags and cheapest price (free, prefix-based). */
   readonly lookup: LookupResource;

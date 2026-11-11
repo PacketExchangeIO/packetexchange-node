@@ -9,7 +9,7 @@ import type {
   RouteUpdateInput,
   RouteFilterInput,
 } from '../shared-types.js';
-import type { PriceNumberResult } from '../generated/schemas.js';
+import type { PriceNumberResult, RouteCheck, RouteCheckPurchase } from '../generated/schemas.js';
 
 /** Smart-routing strategy used by `resolve` and the comms send methods. */
 export type RoutingStrategy = 'cheapest' | 'best_quality' | 'balanced';
@@ -19,6 +19,16 @@ export interface ResolveParams {
   to: string;
   type?: 'voice' | 'sms';
   strategy?: RoutingStrategy;
+}
+
+/** Input for `routes.checks.create()`. */
+export interface RouteCheckInput {
+  /** 1 to 3 route ids, in your order: the first is your primary, the rest backups. */
+  routeIds: string[];
+  /** `network` (default): a dial code or number to check for. `ring_me`: your own number, required. */
+  number?: string;
+  /** `network` calls a public test line (default); `ring_me` calls your own number. */
+  mode?: 'network' | 'ring_me';
 }
 
 /**
@@ -112,6 +122,50 @@ export class RoutesResource {
   delete(id: string, opts?: RequestOptions) {
     return this.http.request<{ message: string }>('DELETE', `/routes/${encodeURIComponent(id)}`, opts);
   }
+
+  /**
+   * Route checks: one short real call (or one test SMS) over a route before you buy it.
+   * Each connected leg is charged at the route's rate, test credit first; a test key
+   * returns a simulated result with no call and no charge. Pass `idempotencyKey` to make
+   * a retried `create`, `sendSms` or `purchase` safe.
+   */
+  readonly checks = {
+    /** POST /routes/check - check 1 to 3 routes. Returns a `checkId` at once; poll `get`. */
+    create: (input: RouteCheckInput, opts?: RequestOptions): Promise<{ checkId: string }> =>
+      this.http.request<{ checkId: string }>('POST', '/routes/check', { ...opts, body: input }),
+    /** GET /routes/check/:id - per-route verdicts, in your order. Poll until `status` is `done`. */
+    get: (id: string, opts?: RequestOptions): Promise<RouteCheck> =>
+      this.http.request<RouteCheck>('GET', `/routes/check/${encodeURIComponent(id)}`, opts),
+    /** GET /routes/checks - your recent route checks (limit 1-50, default 20). */
+    list: (params: { limit?: number } = {}, opts?: RequestOptions): Promise<RouteCheck[]> =>
+      this.http.request<RouteCheck[]>('GET', '/routes/checks', { ...opts, query: { ...params, ...opts?.query } }),
+    /**
+     * GET /routes/check/coverage - whether each route (1 to 3) has a public test line. Where
+     * one has none, check it with `mode: 'ring_me'` and your own number.
+     */
+    coverage: (
+      params: { routeIds: string[]; number?: string },
+      opts?: RequestOptions,
+    ): Promise<Array<{ routeId: string; testLine: boolean }>> =>
+      this.http.request<Array<{ routeId: string; testLine: boolean }>>('GET', '/routes/check/coverage', {
+        ...opts,
+        // The API takes the ids as one comma-separated value, not a repeated parameter.
+        query: { routeIds: params.routeIds.join(','), number: params.number, ...opts?.query },
+      }),
+    /**
+     * POST /routes/check/sms - send one fixed test message over an SMS route to your own
+     * mobile (E.164, covered by the route). Returns a `checkId`; poll `get`.
+     */
+    sendSms: (input: { routeId: string; number: string }, opts?: RequestOptions): Promise<{ checkId: string }> =>
+      this.http.request<{ checkId: string }>('POST', '/routes/check/sms', { ...opts, body: input }),
+    /**
+     * POST /routes/check/:id/purchase - buy every route that passed, in your order, and put
+     * them at the top of your routing order. A route that cannot be bought is reported in
+     * `purchases[].error`. Needs a live key.
+     */
+    purchase: (id: string, opts?: RequestOptions): Promise<RouteCheckPurchase> =>
+      this.http.request<RouteCheckPurchase>('POST', `/routes/check/${encodeURIComponent(id)}/purchase`, opts),
+  };
 }
 
 /** One candidate from a Smart-Routing resolve. */

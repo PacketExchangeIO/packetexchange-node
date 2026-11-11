@@ -95,6 +95,25 @@ query is made, so it cannot tell you whether a number is in service or has been 
 Where a route prices SMS per destination network, `pricing.sms.network` names the
 network the price is for and `pricing.sms.countryRate` is the price for other networks.
 
+## Route checks
+
+Before you buy, check up to three routes with one short real call each, then buy the
+ones that worked and rank them as primary and backups in one step.
+
+```ts
+const { checkId } = await px.routes.checks.create({ routeIds: [primaryId, backupId], number: '+923001234567' });
+let check = await px.routes.checks.get(checkId);
+while (check.status === 'running') {
+  await new Promise((r) => setTimeout(r, 3000));
+  check = await px.routes.checks.get(checkId);
+}
+if (check.working.length > 0) await px.routes.checks.purchase(checkId);
+```
+
+Each connected leg is charged at the route's rate, from test credit first and then your
+balance. A test key returns a simulated result with no call and no charge.
+`px.purchases.lcr(number)` then shows the order your calls to a number will try routes in.
+
 ## Calls with actions
 
 `comms.callAsync` returns as soon as the call is being dialled, with a `callId`. Actions
@@ -168,6 +187,17 @@ passcode call. The call continues after the method returns; read the outcome lat
 const otp = await px.comms.voiceOtp({ to: '+447700900123', code: '482913', brand: 'Acme' });
 const outcome = await px.comms.getVoiceOtp(otp.voiceOtpId);
 ```
+
+With call-in verification no code is sent: the user calls one of your own numbers from
+the phone being verified. Switch a number on with `px.verify.callIn.addNumber(id)`, then:
+
+```ts
+const v = await px.verify.start({ to: '+14155550100', channel: 'call_in', reference: 'user-42' });
+console.log(v.instructions); // show v.callNumberDisplay to the user
+```
+
+A flat fee is charged per approved call-in verification; an expired one is free. With a
+test key, approve it with `px.verify.simulateCall(v.verificationId)`.
 
 Voice codes can be spoken in `en`, `es`, `fr`, `de`, `pt` and `hi`. SMS codes also support
 `ar`. Keys need the `verify:write` scope for `verify.*` and `voice:send` for
@@ -308,19 +338,20 @@ for (const d of failed.data) console.log(d.event, d.httpStatus, d.lastError);
 
 | Property | Covers |
 | --- | --- |
-| `routes` | Marketplace listing and search, Smart Routing preview, number pricing, your listed routes |
-| `purchases` | Buying routes, usage, pause and resume, routing order, rate changes |
+| `routes` | Marketplace listing and search, Smart Routing preview, number pricing, route checks before buying, your listed routes |
+| `purchases` | Buying routes, usage, pause and resume, routing order, least-cost routing per number, failover, rate changes |
 | `offers` | Price negotiation on routes |
 | `comms` | Single calls (with actions, sync or async), SMS and delivery status, voice passcode calls, call and SMS history |
 | `lookup` | Number lookup: type, network, risk flags and cheapest price |
-| `verify` | One-time code verification by SMS or voice |
+| `verify` | One-time code verification by SMS or voice, call-in verification and call-in numbers |
 | `dialer` | Dialer campaigns, numbers and caller IDs |
-| `billing` | Summary, ledger, balance history, CDRs and CSV export |
-| `account` | Profile, balance, API keys, spend alerts, API usage, sessions |
+| `billing` | Summary, ledger, balance history, CDRs and CSV export, failure summary, seller earnings, A-Z price list |
+| `account` | Profile, balance, API keys, spend alerts, followed destinations, API usage |
 | `webhooks` | Webhook endpoints and deliveries |
-| `cliTests` | Caller-ID tests and route liveness tests |
+| `cliTests` | Caller-ID tests, quotes and test countries, and route liveness tests |
 | `interconnections` | Connections, health and connectivity tests |
-| `notifications`, `dnc`, `favorites`, `savedSearches` | Notifications, your do-not-call list, favourite routes, saved searches |
+| `numbers` | Your phone numbers: AI voice agent and call capacity |
+| `notifications`, `dnc`, `favorites`, `savedSearches` | Notifications and the email digest preference, your do-not-call list, favourite routes, saved searches |
 
 Listing ASR and ACD figures are stated by the seller, not measured by PacketExchange.
 

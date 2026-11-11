@@ -1,5 +1,5 @@
 import type { HttpClient, Page, RequestOptions } from '../http.js';
-import type { ApiUsage } from '../generated/schemas.js';
+import type { AccountDestinationAlert, ApiUsage } from '../generated/schemas.js';
 import type {
   User,
   ApiKey,
@@ -10,7 +10,7 @@ import type {
 
 /**
  * Account & developer self-service: profile, balance, API keys, alerts, API
- * usage analytics, and login sessions. Webhooks, favorites, and saved searches
+ * usage analytics, and followed destinations. Webhooks, favorites, and saved searches
  * live under their own top-level resource groups (`sdk.webhooks`, etc.) since
  * they're first-class developer surfaces, even though they mount under
  * `/account` on the wire.
@@ -76,16 +76,19 @@ export class AccountResource {
     ) => this.http.request<Record<string, unknown>>('PUT', '/account/alerts', { ...opts, body: input }),
   };
 
-  /** Login sessions (mounted under /auth on the wire). */
-  readonly sessions = {
-    /** GET /auth/sessions - active sessions for the caller. */
-    list: (opts?: RequestOptions) =>
-      this.http.request<Array<Record<string, unknown>>>('GET', '/auth/sessions', opts),
-    /** DELETE /auth/sessions/:id - revoke one session. */
-    revoke: (id: string, opts?: RequestOptions) =>
-      this.http.request<{ message?: string }>('DELETE', `/auth/sessions/${encodeURIComponent(id)}`, opts),
-    /** POST /auth/sessions/revoke-others - revoke all sessions but the current. */
-    revokeOthers: (opts?: RequestOptions) =>
-      this.http.request<Record<string, unknown>>('POST', '/auth/sessions/revoke-others', opts),
+  /**
+   * Destinations you follow: you hear about new listings, lower prices and routes reaching
+   * International CLI for each one, in-app and in one daily email.
+   */
+  readonly destinationAlerts = {
+    /** GET /account/destination-alerts - the destinations you follow. */
+    list: (opts?: RequestOptions): Promise<AccountDestinationAlert[]> =>
+      this.http.request<AccountDestinationAlert[]>('GET', '/account/destination-alerts', opts),
+    /** POST /account/destination-alerts - follow one country for voice or SMS (idempotent). */
+    create: (input: { country: string; trafficType: 'voice' | 'sms' }, opts?: RequestOptions): Promise<AccountDestinationAlert> =>
+      this.http.request<AccountDestinationAlert>('POST', '/account/destination-alerts', { ...opts, body: input }),
+    /** DELETE /account/destination-alerts/:id - stop following a destination. */
+    delete: (id: string, opts?: RequestOptions): Promise<{ id: string }> =>
+      this.http.request<{ id: string }>('DELETE', `/account/destination-alerts/${encodeURIComponent(id)}`, opts),
   };
 }

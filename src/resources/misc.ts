@@ -1,6 +1,7 @@
 import type { HttpClient, RequestOptions } from '../http.js';
+import type { NotificationEmailPrefs } from '../generated/schemas.js';
 
-/** Notifications: list and mark read. */
+/** Notifications: list, mark read, and the email digest preference. */
 export class NotificationsResource {
   constructor(private readonly http: HttpClient) {}
 
@@ -20,6 +21,22 @@ export class NotificationsResource {
   /** POST /notifications/read-all - mark all notifications read. */
   markAllRead(opts?: RequestOptions) {
     return this.http.request<unknown>('POST', '/notifications/read-all', opts);
+  }
+
+  /**
+   * GET /notifications/preferences - whether unread critical notifications are emailed to
+   * you as a digest (on by default). Not available to scoped keys.
+   */
+  preferences(opts?: RequestOptions): Promise<NotificationEmailPrefs> {
+    return this.http.request<NotificationEmailPrefs>('GET', '/notifications/preferences', opts);
+  }
+
+  /**
+   * PUT /notifications/preferences - turn the digest email (at most one every 4 hours) on
+   * or off. Security and account emails are not affected. Needs a live, full-access key.
+   */
+  setPreferences(input: NotificationEmailPrefs, opts?: RequestOptions): Promise<NotificationEmailPrefs> {
+    return this.http.request<NotificationEmailPrefs>('PUT', '/notifications/preferences', { ...opts, body: input });
   }
 }
 

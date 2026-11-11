@@ -9,6 +9,52 @@ each one is listed under **Changed** or **Fixed**.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-11
+
+### Added
+
+- Route checks on `routes.checks`: `create(input)` checks 1 to 3 routes with one short
+  real call each (`mode: 'network'` or `'ring_me'`), `get(id)`, `list()`,
+  `coverage({ routeIds, number })`, `sendSms({ routeId, number })` for one test message
+  over an SMS route, and `purchase(id)`, which buys the routes that passed and ranks them
+  as primary and backups. Types: `RouteCheckInput`, `RouteCheck`, `RouteCheckLeg`,
+  `RouteCheckPurchase`.
+- Least-cost routing and failover on `purchases`: `lcr(to)`, `setLcrOrder(order)`,
+  `failover()`, `setFailoverPriceLimit(priceLimit)`, and `owned(routeId)` to check
+  whether you already hold a route. Types: `LcrView`, `LcrOrderLine`, `FailoverOverview`,
+  `FailoverPriceLimit`, `OwnedPurchase`.
+- `cliTests.quote(routeId)` and `cliTests.testCountries(routeId)`. Types:
+  `CliTestQuote`, `CliTestCountries`.
+- Call-in verification: `verify.start({ channel: 'call_in' })` returns the number the
+  user calls from the phone being verified, `verify.simulateCall(id)` approves one with a
+  test key, and `verify.callIn` has `coverage()`, `listNumbers()`, `addNumber(id)` and
+  `removeNumber(id)`. `verify.list(filters)` lists recent verifications, and
+  `reference` on `verify.start` attaches your own id. Types: `VerifyCallInStartParams`,
+  `VerifyListFilters`, `CallInVerification`, `CallInCoverage`, `CallInNumber`.
+- `billing.earnings()`, `billing.holdSchedule()` and `billing.failureSummary()`. Types:
+  `SellerEarnings`, `HoldSchedule`, `CallFailureSummary`.
+- The A-Z price list: `billing.priceList()` and `billing.myPriceList()` return the Excel
+  workbook as a `Uint8Array`, and `billing.priceListInfo()` describes the current list.
+  `HttpClient.requestBytes()` is the underlying binary download. Type: `PriceListInfo`.
+- `account.destinationAlerts`: `list()`, `create({ country, trafficType })` and
+  `delete(id)`. Type: `AccountDestinationAlert`.
+- `notifications.preferences()` and `notifications.setPreferences({ actionEmail })`.
+  Type: `NotificationEmailPrefs`.
+- `numbers.callCapacity(id)` and `numbers.setCallCapacity(id, maxCalls)`. Types:
+  `DidCallCapacity`, `DidCallCapacityOffer`, `NumberStoreDisabled`.
+
+### Changed
+
+- `openapi.json` and the generated types are refreshed from the API (version 1.3.0).
+- `verify.get()` returns `Verification | CallInVerification`; narrow on `channel`.
+  `Verification` and `VerifyStartResult` include `reference`.
+
+### Removed
+
+- `account.sessions` (`list`, `revoke`, `revokeOthers`). Login sessions are managed only
+  from the dashboard: the API refuses every API key on these endpoints, and they are not
+  part of the public API reference.
+
 ## [0.4.0] - 2026-09-23
 
 ### Added
@@ -170,6 +216,7 @@ each one is listed under **Changed** or **Fixed**.
 - Cursor-based pagination helpers and a typed `PacketExchangeError`.
 - Dual ESM + CommonJS builds with bundled, dependency-free type declarations.
 
-[Unreleased]: https://github.com/PacketExchangeIO/packetexchange-node/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/PacketExchangeIO/packetexchange-node/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/PacketExchangeIO/packetexchange-node/releases/tag/v0.5.0
 [0.4.0]: https://github.com/PacketExchangeIO/packetexchange-node/releases/tag/v0.4.0
 [0.3.1]: https://github.com/PacketExchangeIO/packetexchange-node/releases/tag/v0.3.1

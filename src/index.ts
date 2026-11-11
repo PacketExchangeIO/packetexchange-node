@@ -16,6 +16,7 @@ export {
   type RoutingStrategy,
   type ResolveParams,
   type ResolvedRoute,
+  type RouteCheckInput,
 } from './resources/routes.js';
 export {
   CommsResource,
@@ -36,24 +37,42 @@ export {
   FINAL_CALL_STATUSES,
 } from './resources/comms.js';
 export { LookupResource } from './resources/lookup.js';
-export { NumbersResource, type DidAiAgent } from './resources/numbers.js';
+export {
+  NumbersResource,
+  type DidAiAgent,
+  type DidCallCapacity,
+  type NumberStoreDisabled,
+} from './resources/numbers.js';
 export {
   VerifyResource,
   type VerifyChannel,
   type VerifyLanguage,
   type VerifyStartParams,
+  type VerifyCallInStartParams,
+  type VerifyListFilters,
   type VerifyStartResult,
   type VerifyCheckParams,
   type VerifyCheckResult,
   type Verification,
 } from './resources/verify.js';
 export { DialerResource, type DialerAction } from './resources/dialer.js';
-export { PurchasesResource, type PurchaseFilters, type ScheduledChangeAcceptance } from './resources/purchases.js';
+export {
+  PurchasesResource,
+  type PurchaseFilters,
+  type ScheduledChangeAcceptance,
+  type LcrOrderLine,
+  type FailoverPriceLimit,
+  type OwnedPurchase,
+} from './resources/purchases.js';
 export { OffersResource, type OfferRole } from './resources/offers.js';
 export {
   BillingResource,
   type TransactionFilters,
   type CdrFilters,
+  type SellerEarnings,
+  type HoldSchedule,
+  type CallFailureSummary,
+  type PriceListInfo,
 } from './resources/billing.js';
 export { AccountResource } from './resources/account.js';
 export {
@@ -99,8 +118,24 @@ export type {
   RouteTestBatch,
   RouteTestItem,
   RouteTestPreview,
+  RouteCheck,
+  RouteCheckLeg,
+  RouteCheckPurchase,
+  LcrView,
+  FailoverOverview,
+  AccountDestinationAlert,
+  NotificationEmailPrefs,
+  CallInVerification,
+  CallInCoverage,
+  CallInNumber,
+  DidCallCapacityOffer,
 } from './generated/schemas.js';
-export { CliTestsResource, type RouteTestBatchInput } from './resources/cli-tests.js';
+export {
+  CliTestsResource,
+  type RouteTestBatchInput,
+  type CliTestQuote,
+  type CliTestCountries,
+} from './resources/cli-tests.js';
 export {
   InterconnectionsResource,
   type InterconnectionTestType,

@@ -130,6 +130,15 @@ export class HttpClient {
   }
 
   /**
+   * Perform a request for a binary file (e.g. an Excel workbook) and return its bytes.
+   * Throws a `PacketExchangeError` on a non-2xx status, like `requestRaw`.
+   */
+  async requestBytes(method: string, path: string, opts: RequestOptions = {}): Promise<Uint8Array> {
+    const res = await this.requestRaw(method, path, opts);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  /**
    * Like `request`, but returns the FULL envelope - used by paginated list
    * helpers that need `nextCursor`/`hasMore`/`total` alongside `data`.
    */

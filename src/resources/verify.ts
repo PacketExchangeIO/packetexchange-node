@@ -1,5 +1,6 @@
 import type { HttpClient, RequestOptions } from '../http.js';
 import type { RoutingStrategy } from './routes.js';
+import type { CallInCoverage, CallInNumber, CallInVerification } from '../generated/schemas.js';
 
 /** Delivery channel for a verification code. */
 export type VerifyChannel = 'sms' | 'voice';
@@ -11,11 +12,16 @@ export type VerifyChannel = 'sms' | 'voice';
  */
 export type VerifyLanguage = 'en' | 'es' | 'fr' | 'de' | 'pt' | 'hi' | 'ar';
 
-/** Params for `verify.start`. */
+/** Params for `verify.start` with a code sent by SMS or voice. */
 export interface VerifyStartParams {
   /** Destination number (E.164). */
   to: string;
   channel: VerifyChannel;
+  /**
+   * Your own id for this request (letters, digits and `. _ : @ -`, max 128), e.g. your user
+   * or session id. Echoed on every read and webhook.
+   */
+  reference?: string;
   /** Code length, 4-10 digits (default 6). */
   length?: number;
   /** Message language (default `en`). */
@@ -29,9 +35,26 @@ export interface VerifyStartParams {
   strategy?: RoutingStrategy;
 }
 
+/**
+ * Params for `verify.start` with `channel: 'call_in'`. No code is sent: the result carries
+ * `callNumber`, and the user verifies by calling it from `to`. Needs one of your own phone
+ * numbers switched on for call-in in the same country (see `verify.callIn`).
+ */
+export interface VerifyCallInStartParams {
+  /** The phone number being verified (E.164). */
+  to: string;
+  channel: 'call_in';
+  /** Your own id for this request. Starting again with the same reference returns the pending verification. */
+  reference?: string;
+  /** How long the user has to call, 60-3600 seconds (default 300 for call-in). */
+  expirySeconds?: number;
+}
+
 /** Result of `verify.start`. The code itself is never returned on a live key. */
 export interface VerifyStartResult {
   verificationId: string;
+  /** Your reference, when you sent one. */
+  reference?: string | null;
   to: string;
   channel: VerifyChannel;
   status: 'pending';
@@ -72,6 +95,8 @@ export interface VerifyCheckResult {
 /** A verification as returned by `verify.get`. */
 export interface Verification {
   verificationId: string;
+  /** Your reference, when you sent one. */
+  reference?: string | null;
   to: string;
   channel: VerifyChannel;
   status: 'pending' | 'approved' | 'expired' | 'max_attempts' | 'failed';
@@ -86,11 +111,21 @@ export interface Verification {
   [k: string]: unknown;
 }
 
+/** Filters for `verify.list`. */
+export interface VerifyListFilters {
+  reference?: string;
+  status?: 'pending' | 'approved' | 'expired' | 'max_attempts' | 'failed';
+  channel?: VerifyChannel | 'call_in';
+  /** 1-100, default 25. */
+  limit?: number;
+}
+
 /**
  * Verify API: send a one-time code by SMS or voice call, then check what the user
  * typed. The platform generates the code, stores only a keyed hash of it, enforces
  * expiry, 5 attempts and single use, and rate-limits sends per number and per account.
- * All methods need the `verify:write` scope.
+ * Call-in verification (`channel: 'call_in'`) instead has the user call one of your
+ * numbers from the phone being verified. All methods need the `verify:write` scope.
  */
 export class VerifyResource {
   constructor(private readonly http: HttpClient) {}
@@ -101,8 +136,18 @@ export class VerifyResource {
    * a daily cap per account (a `PacketExchangeError` with status 429 and code
    * `RATE_LIMITED`; `details.retryAfterSeconds` says when to retry).
    */
-  start(params: VerifyStartParams, opts?: { idempotencyKey?: string } & RequestOptions): Promise<VerifyStartResult> {
-    return this.http.request<VerifyStartResult>('POST', '/verify/start', {
+  start(params: VerifyStartParams, opts?: RequestOptions): Promise<VerifyStartResult>;
+  /**
+   * POST /verify/start with `channel: 'call_in'` - returns the number the user must call
+   * from `to`. Learn the result from the `verification.approved` webhook or `verify.get`.
+   * A flat fee is charged per approved verification; an expired one is free.
+   */
+  start(params: VerifyCallInStartParams, opts?: RequestOptions): Promise<CallInVerification>;
+  start(
+    params: VerifyStartParams | VerifyCallInStartParams,
+    opts?: RequestOptions,
+  ): Promise<VerifyStartResult | CallInVerification> {
+    return this.http.request<VerifyStartResult | CallInVerification>('POST', '/verify/start', {
       ...opts,
       body: params,
       idempotencyKey: opts?.idempotencyKey,
@@ -115,7 +160,59 @@ export class VerifyResource {
   }
 
   /** GET /verify/:id - current state of a verification (never includes the code). */
-  get(verificationId: string, opts?: RequestOptions): Promise<Verification> {
-    return this.http.request<Verification>('GET', `/verify/${encodeURIComponent(verificationId)}`, opts);
+  get(verificationId: string, opts?: RequestOptions): Promise<Verification | CallInVerification> {
+    return this.http.request<Verification | CallInVerification>(
+      'GET',
+      `/verify/${encodeURIComponent(verificationId)}`,
+      opts,
+    );
   }
+
+  /**
+   * GET /verify - recent verifications, newest first. Test keys see only test
+   * verifications, live keys only live ones.
+   */
+  list(filters: VerifyListFilters = {}, opts?: RequestOptions): Promise<Array<Verification | CallInVerification>> {
+    return this.http.request<Array<Verification | CallInVerification>>('GET', '/verify', {
+      ...opts,
+      query: { ...filters, ...opts?.query },
+    });
+  }
+
+  /**
+   * POST /verify/:id/simulate-call - test keys only: approve a pending call-in
+   * verification as if the user had called, and send the `verification.approved` webhook
+   * with `simulated: true`. Nothing is charged.
+   */
+  simulateCall(verificationId: string, opts?: RequestOptions): Promise<CallInVerification> {
+    return this.http.request<CallInVerification>(
+      'POST',
+      `/verify/${encodeURIComponent(verificationId)}/simulate-call`,
+      opts,
+    );
+  }
+
+  /**
+   * Call-in numbers: your own phone numbers that answer call-in verifications. While
+   * call-in is on for a number, every call to it is treated as a verification attempt and
+   * ended without being answered, so any ringing set up on it stops.
+   */
+  readonly callIn = {
+    /** GET /verify/call-in/coverage - the call-in numbers you can use, the dial code each verifies, and the price. */
+    coverage: (opts?: RequestOptions): Promise<CallInCoverage> =>
+      this.http.request<CallInCoverage>('GET', '/verify/call-in/coverage', opts),
+    /** GET /verify/call-in/numbers - every phone number on your account and its call-in setting. */
+    listNumbers: (opts?: RequestOptions): Promise<CallInNumber[]> =>
+      this.http.request<CallInNumber[]>('GET', '/verify/call-in/numbers', opts),
+    /** POST /verify/call-in/numbers - switch call-in on for an active number you hold. Needs a live key. */
+    addNumber: (phoneNumberId: string, opts?: RequestOptions): Promise<CallInNumber> =>
+      this.http.request<CallInNumber>('POST', '/verify/call-in/numbers', { ...opts, body: { phoneNumberId } }),
+    /** DELETE /verify/call-in/numbers/:phoneNumberId - switch call-in off; calls ring as set up again. Needs a live key. */
+    removeNumber: (phoneNumberId: string, opts?: RequestOptions): Promise<CallInNumber | null> =>
+      this.http.request<CallInNumber | null>(
+        'DELETE',
+        `/verify/call-in/numbers/${encodeURIComponent(phoneNumberId)}`,
+        opts,
+      ),
+  };
 }

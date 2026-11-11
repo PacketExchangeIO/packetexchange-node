@@ -6,6 +6,8 @@ import type {
   RouteForResult,
   PurchaseUpcomingRateChanges,
   PurchaseRow,
+  LcrView,
+  FailoverOverview,
 } from '../generated/schemas.js';
 
 /** What `acceptRate` returns when a scheduled change is accepted in advance. */
@@ -14,6 +16,28 @@ export interface ScheduledChangeAcceptance {
   changeId: string;
   purchaseId: string;
   effectiveDate: string;
+}
+
+/**
+ * One line of `purchases.setLcrOrder()`: a route you bought by `purchaseId`, or one of
+ * your own routes or blends by `routeId`.
+ */
+export type LcrOrderLine = { purchaseId: string } | { routeId: string };
+
+/**
+ * How much more a backup route may cost than the route a call was first sent to:
+ * `same_or_lower` (default), `up_to_10` or `up_to_25` percent more, `any`, or `off`
+ * (no failover).
+ */
+export type FailoverPriceLimit = 'same_or_lower' | 'up_to_10' | 'up_to_25' | 'any' | 'off';
+
+/** A route you already hold, from `purchases.owned()`. */
+export interface OwnedPurchase {
+  /** The purchase id. */
+  id: string;
+  status: 'active' | 'pending_review';
+  /** SMS routes: the state of the content review, when there is one. */
+  smsReview: string | null;
 }
 
 /** Filters for the purchases list. */
@@ -118,6 +142,54 @@ export class PurchasesResource {
       `/purchases/${encodeURIComponent(id)}/accept-rate`,
       { ...opts, body: input },
     );
+  }
+
+  /**
+   * GET /purchases/lcr - every route that can carry a call to `to` from your account, in
+   * the order a call tries them, with your rate, latest test and last-24-hour calls for
+   * each, plus `warnings` and any `refused` reason. Limited to 60 requests a minute.
+   */
+  lcr(to: string, opts?: RequestOptions): Promise<LcrView> {
+    return this.http.request<LcrView>('GET', '/purchases/lcr', { ...opts, query: { to, ...opts?.query } });
+  }
+
+  /**
+   * PUT /purchases/lcr-order - reorder the lines `lcr` showed for one number. Other routes
+   * and destinations keep their place. Voice routes only; needs a live key.
+   */
+  setLcrOrder(
+    order: LcrOrderLine[],
+    opts?: RequestOptions,
+  ): Promise<{ order: Array<{ purchaseId?: string; routeId?: string; position: number }> }> {
+    return this.http.request<{ order: Array<{ purchaseId?: string; routeId?: string; position: number }> }>(
+      'PUT',
+      '/purchases/lcr-order',
+      { ...opts, body: { order } },
+    );
+  }
+
+  /**
+   * GET /purchases/failover - for each destination, the route tried first and the backups
+   * behind it, plus your automatic failover settings. Read-only.
+   */
+  failover(opts?: RequestOptions): Promise<FailoverOverview> {
+    return this.http.request<FailoverOverview>('GET', '/purchases/failover', opts);
+  }
+
+  /** PUT /purchases/failover/price-limit - how much more a backup may cost (`off` disables failover). Needs a live key. */
+  setFailoverPriceLimit(priceLimit: FailoverPriceLimit, opts?: RequestOptions): Promise<{ priceLimit: FailoverPriceLimit }> {
+    return this.http.request<{ priceLimit: FailoverPriceLimit }>('PUT', '/purchases/failover/price-limit', {
+      ...opts,
+      body: { priceLimit },
+    });
+  }
+
+  /**
+   * GET /purchases/owned/:routeId - your active purchase of a route, or one awaiting
+   * review, so you can avoid buying it twice. `null` when you hold neither.
+   */
+  owned(routeId: string, opts?: RequestOptions): Promise<OwnedPurchase | null> {
+    return this.http.request<OwnedPurchase | null>('GET', `/purchases/owned/${encodeURIComponent(routeId)}`, opts);
   }
 
   /** DELETE /purchases/:id - cancel a purchase. */

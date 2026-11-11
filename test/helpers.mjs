@@ -5,7 +5,7 @@ import { PacketExchange } from '../dist/index.js';
  * assert the method, path, query, headers and body the SDK sent. No network is used.
  *
  * `respond(req)` returns `{ status?, body?, headers? }`; the default is an empty
- * success envelope.
+ * success envelope. A string or `Uint8Array` body is sent unchanged.
  */
 export function mockClient(respond = () => ({ body: { success: true, data: {} } }), options = {}) {
   const calls = [];
@@ -21,8 +21,9 @@ export function mockClient(respond = () => ({ body: { success: true, data: {} } 
     };
     calls.push(req);
     const { status = 200, body = { success: true, data: {} }, headers = {} } = respond(req) ?? {};
-    const text = typeof body === 'string' ? body : JSON.stringify(body);
-    return new Response(text, { status, headers: { 'content-type': 'application/json', ...headers } });
+    // Strings and bytes (file downloads) are sent as-is; anything else as JSON.
+    const payload = typeof body === 'string' || body instanceof Uint8Array ? body : JSON.stringify(body);
+    return new Response(payload, { status, headers: { 'content-type': 'application/json', ...headers } });
   };
   const px = new PacketExchange({ apiKey: 'test-key', fetch, ...options });
   return { px, calls };
